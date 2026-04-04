@@ -41,14 +41,16 @@ const DESIGN_QUERY = [
   'OR верстка OR флаєр OR плакат OR каталог OR візитка))',
 ].join(' ')
 
-export async function fetchDesignEmails(afterDate?: string) {
+export async function fetchDesignEmails(_afterDate?: string) {
   const gmail = await getGmailClient()
-  let query = DESIGN_QUERY
-  if (afterDate) {
-    const d = new Date(afterDate)
-    const formatted = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`
-    query += ` after:${formatted}`
-  }
+
+  // Always fetch only today + yesterday, ignore afterDate
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  yesterday.setHours(0, 0, 0, 0)
+  const formatted = `${yesterday.getFullYear()}/${yesterday.getMonth() + 1}/${yesterday.getDate()}`
+
+  const query = `${DESIGN_QUERY} after:${formatted}`
 
   const res = await gmail.users.messages.list({
     userId: 'me',
