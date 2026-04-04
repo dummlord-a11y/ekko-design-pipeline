@@ -34,23 +34,17 @@ export async function getGmailClient() {
   return google.gmail({ version: 'v1', auth })
 }
 
-const DESIGN_QUERY = [
-  'in:inbox',
-  '(subject:(design OR label OR packaging OR sticker OR banner OR brochure OR print',
-  'OR друк OR етикетка OR упаковка OR дизайн OR макет OR наклейка OR поліграфія',
-  'OR верстка OR флаєр OR плакат OR каталог OR візитка))',
-].join(' ')
-
 export async function fetchDesignEmails(_afterDate?: string) {
   const gmail = await getGmailClient()
 
-  // Always fetch only today + yesterday, ignore afterDate
+  // Fetch all inbox emails from yesterday+today
+  // AI relevance filter handles the rest (skips spam, newsletters, etc.)
   const yesterday = new Date()
   yesterday.setDate(yesterday.getDate() - 1)
   yesterday.setHours(0, 0, 0, 0)
   const formatted = `${yesterday.getFullYear()}/${yesterday.getMonth() + 1}/${yesterday.getDate()}`
 
-  const query = `${DESIGN_QUERY} after:${formatted}`
+  const query = `in:inbox after:${formatted} -category:promotions -category:social -category:updates -category:forums`
 
   const res = await gmail.users.messages.list({
     userId: 'me',
