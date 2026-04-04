@@ -52,7 +52,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#0a0a0f]">
+      <div className="flex h-screen items-center justify-center bg-gray-50">
         <Loader2 size={32} className="animate-spin text-indigo-500" />
       </div>
     )
@@ -60,11 +60,11 @@ export default function App() {
 
   if (error) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-[#0a0a0f]">
-        <p className="text-red-400">{error}</p>
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-gray-50">
+        <p className="text-red-500">{error}</p>
         <button
           onClick={refetch}
-          className="rounded-lg bg-indigo-600/20 px-4 py-2 text-sm text-indigo-300 hover:bg-indigo-600/30"
+          className="rounded-lg bg-indigo-50 px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-100"
         >
           Спробувати знову
         </button>
@@ -73,7 +73,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-[#0a0a0f]">
+    <div className="flex h-screen flex-col bg-gray-50">
       <Header
         lastSync={lastSync}
         onSyncComplete={handleSyncComplete}

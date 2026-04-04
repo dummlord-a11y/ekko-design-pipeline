@@ -5,29 +5,15 @@ import { getSupabaseAdmin } from './lib/supabase-admin.js'
 export default async function handler(req: Request, _context: Context) {
   const url = new URL(req.url)
   const code = url.searchParams.get('code')
-  const state = url.searchParams.get('state') // origin URL
+  const state = url.searchParams.get('state')
 
   if (!code) {
     return new Response('Missing authorization code', { status: 400 })
   }
 
   try {
-    const supabase = getSupabaseAdmin()
-
-    // Read Google credentials
-    const { data: clientIdRow } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'google_client_id')
-      .single()
-    const { data: clientSecretRow } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'google_client_secret')
-      .single()
-
-    const clientId = clientIdRow?.value || process.env.GOOGLE_CLIENT_ID
-    const clientSecret = clientSecretRow?.value || process.env.GOOGLE_CLIENT_SECRET
+    const clientId = process.env.GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
       return new Response('Google credentials not configured', { status: 500 })
@@ -40,24 +26,23 @@ export default async function handler(req: Request, _context: Context) {
     const { tokens } = await oauth2Client.getToken(code)
 
     if (!tokens.refresh_token) {
-      return redirectWithMessage(origin, 'error', 'No refresh token received. Try revoking access at myaccount.google.com/permissions and reconnecting.')
+      return redirectWithMessage(origin, 'error', 'Не вдалося отримати токен. Спробуйте відкликати доступ на myaccount.google.com/permissions та підключитися знову.')
     }
 
-    // Store refresh token in Supabase settings
+    const supabase = getSupabaseAdmin()
+
     await supabase.from('settings').upsert({
       key: 'google_refresh_token',
       value: tokens.refresh_token,
       updated_at: new Date().toISOString(),
     })
 
-    // Also store access token info for status display
     await supabase.from('settings').upsert({
       key: 'google_connected_at',
       value: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
 
-    // Get the Gmail profile email
     oauth2Client.setCredentials(tokens)
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
     const profile = await gmail.users.getProfile({ userId: 'me' })
@@ -70,7 +55,7 @@ export default async function handler(req: Request, _context: Context) {
       })
     }
 
-    return redirectWithMessage(origin, 'success', 'Gmail connected successfully!')
+    return redirectWithMessage(origin, 'success', 'Gmail підключено!')
   } catch (e) {
     const origin = state || 'http://localhost:8888'
     const msg = e instanceof Error ? e.message : 'Token exchange failed'

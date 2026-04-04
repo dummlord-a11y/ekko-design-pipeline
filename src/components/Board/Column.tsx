@@ -23,17 +23,17 @@ export function Column({ id, title, tasks, icon, onTaskClick, accent }: Props) {
     <div
       ref={setNodeRef}
       className={clsx(
-        'flex w-72 min-w-[288px] flex-shrink-0 flex-col rounded-xl border bg-[#111118] transition-colors',
-        isOver ? 'border-indigo-500/50 bg-indigo-500/5' : 'border-white/5'
+        'flex w-72 min-w-[288px] flex-shrink-0 flex-col rounded-xl border bg-white transition-colors',
+        isOver ? 'border-indigo-300 bg-indigo-50/50' : 'border-gray-200'
       )}
     >
-      <div className="flex items-center gap-2 border-b border-white/5 px-4 py-3">
+      <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3">
         {icon}
-        <h3 className="text-sm font-semibold text-zinc-300">{title}</h3>
+        <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
         <span
           className={clsx(
             'ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-medium',
-            accent || 'bg-white/10 text-zinc-400'
+            accent || 'bg-gray-100 text-gray-500'
           )}
         >
           {tasks.length}
@@ -57,7 +57,7 @@ export function Column({ id, title, tasks, icon, onTaskClick, accent }: Props) {
         </SortableContext>
 
         {tasks.length === 0 && (
-          <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-white/10 text-xs text-zinc-600">
+          <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-gray-200 text-xs text-gray-400">
             Перетягніть завдання сюди
           </div>
         )}

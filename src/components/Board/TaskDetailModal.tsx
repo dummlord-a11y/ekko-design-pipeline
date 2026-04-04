@@ -24,26 +24,26 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-white/10 bg-[#13131a] shadow-2xl"
+        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-white/5 p-5">
+        <div className="flex items-start justify-between border-b border-gray-100 p-5">
           <div className="flex-1 pr-4">
             <div className="mb-2 flex items-center gap-2">
               <ComplexityBadge level={task.complexity} />
-              <span className="rounded bg-white/5 px-2 py-0.5 text-xs text-zinc-400">
+              <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
                 {uk.categories[task.category] || task.category}
               </span>
             </div>
-            <h2 className="text-lg font-semibold text-zinc-100">
+            <h2 className="text-lg font-semibold text-gray-900">
               {task.subject}
             </h2>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-gray-400">
               {task.sender} &middot;{' '}
               {format(new Date(task.created_at), 'dd MMM yyyy, HH:mm', {
                 locale: ukLocale,
@@ -52,7 +52,7 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
+            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
           >
             <X size={20} />
           </button>
@@ -62,29 +62,28 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
           {/* Email body */}
           <div className="md:col-span-2 space-y-4">
             <div>
-              <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-400">
+              <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-500">
                 <Tag size={14} /> Зміст листа
               </h3>
-              <div className="rounded-lg border border-white/5 bg-[#0e0e15] p-4 text-sm leading-relaxed text-zinc-300 whitespace-pre-wrap max-h-80 overflow-y-auto">
+              <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 text-sm leading-relaxed text-gray-700 whitespace-pre-wrap max-h-80 overflow-y-auto">
                 {task.full_body || task.body_preview}
               </div>
             </div>
 
-            {/* Attachments */}
             {task.attachments && task.attachments.length > 0 && (
               <div>
-                <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-400">
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-500">
                   <Paperclip size={14} /> {uk.attachments} ({task.attachments.length})
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {task.attachments.map((att) => (
                     <div
                       key={att.id}
-                      className="flex items-center gap-2 rounded-lg border border-white/5 bg-[#0e0e15] px-3 py-2 text-xs text-zinc-400"
+                      className="flex items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-500"
                     >
                       <Paperclip size={12} />
                       <span className="max-w-[200px] truncate">{att.filename}</span>
-                      <span className="text-zinc-600">
+                      <span className="text-gray-300">
                         {(att.size_bytes / 1024).toFixed(0)} KB
                       </span>
                     </div>
@@ -93,17 +92,16 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
               </div>
             )}
 
-            {/* AI Analysis */}
             {analysis && (
               <div>
-                <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-400">
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-500">
                   <Brain size={14} /> {uk.aiAnalysis}
                 </h3>
-                <div className="space-y-3 rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-4">
-                  <p className="text-sm text-zinc-300">{analysis.summary_uk}</p>
+                <div className="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50 p-4">
+                  <p className="text-sm text-gray-700">{analysis.summary_uk}</p>
 
                   {analysis.estimated_hours > 0 && (
-                    <div className="flex items-center gap-2 text-xs text-zinc-400">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
                       <Clock size={12} />
                       {uk.estimatedHours}: ~{analysis.estimated_hours} год
                     </div>
@@ -111,15 +109,12 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
 
                   {analysis.key_requirements?.length > 0 && (
                     <div>
-                      <p className="mb-1 text-xs font-medium text-zinc-400">
+                      <p className="mb-1 text-xs font-medium text-gray-500">
                         {uk.requirements}:
                       </p>
                       <ul className="space-y-1">
                         {analysis.key_requirements.map((req, i) => (
-                          <li
-                            key={i}
-                            className="flex items-start gap-2 text-xs text-zinc-400"
-                          >
+                          <li key={i} className="flex items-start gap-2 text-xs text-gray-500">
                             <span className="mt-1 h-1 w-1 flex-shrink-0 rounded-full bg-indigo-400" />
                             {req}
                           </li>
@@ -129,8 +124,8 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
                   )}
 
                   {analysis.complexity_reasoning && (
-                    <div className="border-t border-indigo-500/10 pt-2">
-                      <p className="text-[11px] text-zinc-500">
+                    <div className="border-t border-indigo-100 pt-2">
+                      <p className="text-[11px] text-gray-400">
                         <span className="font-medium">{uk.reasoning}:</span>{' '}
                         {analysis.complexity_reasoning}
                       </p>
@@ -143,20 +138,19 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
 
           {/* Sidebar controls */}
           <div className="space-y-4">
-            {/* Status */}
             <div className="relative">
-              <label className="mb-1 block text-xs font-medium text-zinc-500">
+              <label className="mb-1 block text-xs font-medium text-gray-500">
                 {uk.status}
               </label>
               <button
                 onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-[#0e0e15] px-3 py-2 text-sm text-zinc-300 hover:border-white/20"
+                className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:border-gray-300"
               >
                 {uk.statuses[task.status]}
                 <ChevronDown size={14} />
               </button>
               {showStatusDropdown && (
-                <div className="absolute z-10 mt-1 w-full rounded-lg border border-white/10 bg-[#1a1a24] py-1 shadow-xl">
+                <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
                   {statusOptions.map((s) => (
                     <button
                       key={s}
@@ -164,7 +158,7 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
                         onUpdate(task.id, { status: s })
                         setShowStatusDropdown(false)
                       }}
-                      className="w-full px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-white/5"
+                      className="w-full px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
                       {uk.statuses[s]}
                     </button>
@@ -173,14 +167,13 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
               )}
             </div>
 
-            {/* Assign */}
             <div className="relative">
-              <label className="mb-1 block text-xs font-medium text-zinc-500">
+              <label className="mb-1 block text-xs font-medium text-gray-500">
                 {uk.assignTo}
               </label>
               <button
                 onClick={() => setShowAssignDropdown(!showAssignDropdown)}
-                className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-[#0e0e15] px-3 py-2 text-sm text-zinc-300 hover:border-white/20"
+                className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:border-gray-300"
               >
                 {task.designer ? (
                   <span className="flex items-center gap-2">
@@ -188,18 +181,18 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
                     {task.designer.name}
                   </span>
                 ) : (
-                  <span className="text-zinc-500">Не призначено</span>
+                  <span className="text-gray-400">Не призначено</span>
                 )}
                 <ChevronDown size={14} />
               </button>
               {showAssignDropdown && (
-                <div className="absolute z-10 mt-1 w-full rounded-lg border border-white/10 bg-[#1a1a24] py-1 shadow-xl">
+                <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
                   <button
                     onClick={() => {
                       onUpdate(task.id, { assigned_to: null, status: 'backlog' })
                       setShowAssignDropdown(false)
                     }}
-                    className="w-full px-3 py-1.5 text-left text-sm text-zinc-400 hover:bg-white/5"
+                    className="w-full px-3 py-1.5 text-left text-sm text-gray-400 hover:bg-gray-50"
                   >
                     <User size={14} className="mr-2 inline" />
                     Не призначено
@@ -211,7 +204,7 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
                         onUpdate(task.id, { assigned_to: d.id, status: 'assigned' })
                         setShowAssignDropdown(false)
                       }}
-                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-white/5"
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
                       <Avatar name={d.name} url={d.avatar_url} size="sm" />
                       {d.name}
@@ -221,11 +214,10 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
               )}
             </div>
 
-            {/* Quick actions */}
             {task.status !== 'done' && (
               <button
                 onClick={() => onUpdate(task.id, { status: 'done' })}
-                className="w-full rounded-lg bg-green-600/20 px-4 py-2 text-sm font-medium text-green-400 transition-colors hover:bg-green-600/30"
+                className="w-full rounded-lg bg-green-50 border border-green-200 px-4 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-100"
               >
                 {uk.markDone}
               </button>

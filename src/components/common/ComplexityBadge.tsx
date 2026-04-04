@@ -1,11 +1,11 @@
 import { clsx } from 'clsx'
 
 const colors: Record<number, string> = {
-  1: 'bg-green-500/20 text-green-400 border-green-500/30',
-  2: 'bg-lime-500/20 text-lime-400 border-lime-500/30',
-  3: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  4: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-  5: 'bg-red-500/20 text-red-400 border-red-500/30',
+  1: 'bg-green-50 text-green-600 border-green-200',
+  2: 'bg-lime-50 text-lime-600 border-lime-200',
+  3: 'bg-yellow-50 text-yellow-600 border-yellow-200',
+  4: 'bg-orange-50 text-orange-600 border-orange-200',
+  5: 'bg-red-50 text-red-600 border-red-200',
 }
 
 export function ComplexityBadge({ level }: { level: number }) {

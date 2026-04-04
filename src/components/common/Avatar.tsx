@@ -35,7 +35,7 @@ export function Avatar({
   return (
     <div
       className={clsx(
-        'flex items-center justify-center rounded-full bg-indigo-600/30 font-medium text-indigo-300',
+        'flex items-center justify-center rounded-full bg-indigo-100 font-medium text-indigo-600',
         sizes[size]
       )}
     >

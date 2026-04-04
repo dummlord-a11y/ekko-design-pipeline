@@ -30,17 +30,17 @@ export function Header({ lastSync, onSyncComplete, searchQuery, onSearchChange, 
   }
 
   return (
-    <header className="flex items-center justify-between border-b border-white/5 bg-[#0c0c12] px-6 py-3">
+    <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3">
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600/20">
-          <Printer size={18} className="text-indigo-400" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50">
+          <Printer size={18} className="text-indigo-600" />
         </div>
         <div>
-          <h1 className="text-base font-bold text-zinc-100 tracking-tight">
+          <h1 className="text-base font-bold text-gray-900 tracking-tight">
             {uk.appTitle}
           </h1>
           {lastSync && (
-            <p className="text-[11px] text-zinc-600">
+            <p className="text-[11px] text-gray-400">
               {uk.lastSync}: {new Date(lastSync).toLocaleString('uk-UA')}
             </p>
           )}
@@ -48,35 +48,29 @@ export function Header({ lastSync, onSyncComplete, searchQuery, onSearchChange, 
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Search */}
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={uk.search}
-            className="h-8 w-56 rounded-lg border border-white/10 bg-[#111118] pl-8 pr-3 text-xs text-zinc-300 placeholder-zinc-600 outline-none transition-colors focus:border-indigo-500/40"
+            className="h-8 w-56 rounded-lg border border-gray-200 bg-gray-50 pl-8 pr-3 text-xs text-gray-700 placeholder-gray-400 outline-none transition-colors focus:border-indigo-300 focus:bg-white"
           />
         </div>
 
-        {/* Sync button */}
         <button
           onClick={handleSync}
           disabled={syncing}
-          className="flex items-center gap-2 rounded-lg bg-indigo-600/20 px-4 py-2 text-sm font-medium text-indigo-300 transition-colors hover:bg-indigo-600/30 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
         >
-          <RefreshCw
-            size={14}
-            className={syncing ? 'animate-spin' : ''}
-          />
+          <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
           {syncing ? uk.syncing : uk.syncGmail}
         </button>
 
-        {/* Settings button */}
         <button
           onClick={onSettingsClick}
-          className="rounded-lg p-2 text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
+          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
           title="Налаштування"
         >
           <Settings size={18} />
@@ -84,7 +78,7 @@ export function Header({ lastSync, onSyncComplete, searchQuery, onSearchChange, 
       </div>
 
       {syncError && (
-        <div className="absolute right-6 top-14 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+        <div className="absolute right-6 top-14 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
           {syncError}
         </div>
       )}

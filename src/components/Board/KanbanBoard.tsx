@@ -98,8 +98,8 @@ export function KanbanBoard({ tasks, designers, onUpdateTask }: Props) {
             title={uk.backlog}
             tasks={backlogTasks}
             onTaskClick={setSelectedTask}
-            icon={<Inbox size={16} className="text-indigo-400" />}
-            accent="bg-indigo-500/20 text-indigo-400"
+            icon={<Inbox size={16} className="text-indigo-500" />}
+            accent="bg-indigo-100 text-indigo-600"
           />
 
           {/* Designer columns */}
@@ -111,7 +111,7 @@ export function KanbanBoard({ tasks, designers, onUpdateTask }: Props) {
               tasks={getDesignerTasks(designer.id)}
               onTaskClick={setSelectedTask}
               icon={
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600/30 text-[10px] font-medium text-indigo-300">
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-medium text-indigo-600">
                   {designer.name.split(' ').map((w) => w[0]).join('')}
                 </div>
               }
@@ -124,8 +124,8 @@ export function KanbanBoard({ tasks, designers, onUpdateTask }: Props) {
             title={uk.done}
             tasks={doneTasks}
             onTaskClick={setSelectedTask}
-            icon={<User size={16} className="text-green-400" />}
-            accent="bg-green-500/20 text-green-400"
+            icon={<User size={16} className="text-green-500" />}
+            accent="bg-green-100 text-green-600"
           />
         </div>
 
