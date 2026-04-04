@@ -23,7 +23,7 @@ export function Column({ id, title, tasks, icon, onTaskClick, accent }: Props) {
     <div
       ref={setNodeRef}
       className={clsx(
-        'flex w-72 min-w-[288px] flex-shrink-0 flex-col rounded-xl border bg-white transition-colors',
+        'flex w-72 min-w-[288px] max-h-[calc(100vh-120px)] flex-shrink-0 flex-col rounded-xl border bg-white transition-colors',
         isOver ? 'border-indigo-300 bg-indigo-50/50' : 'border-gray-200'
       )}
     >

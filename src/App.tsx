@@ -9,7 +9,7 @@ import { Loader2 } from 'lucide-react'
 type Page = 'dashboard' | 'settings'
 
 export default function App() {
-  const { tasks, loading, error, refetch, updateTask } = useTasks()
+  const { tasks, loading, error, refetch, updateTask, deleteTask } = useTasks()
   const { designers } = useDesigners()
   const [lastSync, setLastSync] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -89,6 +89,7 @@ export default function App() {
           tasks={filteredTasks}
           designers={designers}
           onUpdateTask={updateTask}
+          onDeleteTask={deleteTask}
         />
       </main>
     </div>

@@ -20,9 +20,10 @@ interface Props {
   tasks: Task[]
   designers: Designer[]
   onUpdateTask: (id: string, updates: Partial<Task>) => void
+  onDeleteTask: (id: string) => void
 }
 
-export function KanbanBoard({ tasks, designers, onUpdateTask }: Props) {
+export function KanbanBoard({ tasks, designers, onUpdateTask, onDeleteTask }: Props) {
   const [activeTask, setActiveTask] = useState<Task | null>(null)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
 
@@ -142,6 +143,7 @@ export function KanbanBoard({ tasks, designers, onUpdateTask }: Props) {
           designers={designers}
           onClose={() => setSelectedTask(null)}
           onUpdate={handleTaskUpdate}
+          onDelete={(id) => { onDeleteTask(id); setSelectedTask(null) }}
         />
       )}
     </>

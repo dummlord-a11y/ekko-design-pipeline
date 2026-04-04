@@ -1,26 +1,112 @@
 import { useState } from 'react'
-import { X, Paperclip, Brain, Clock, Tag, User, ChevronDown, AlertTriangle, Wrench, CheckSquare } from 'lucide-react'
+import {
+  X, Paperclip, Brain, Clock, Tag, User, ChevronDown,
+  AlertTriangle, Wrench, CheckSquare, Trash2, FileText, Image, Eye,
+} from 'lucide-react'
 import { format } from 'date-fns'
 import { uk as ukLocale } from 'date-fns/locale'
 import { ComplexityBadge } from '../common/ComplexityBadge'
 import { Avatar } from '../common/Avatar'
 import { uk } from '../../lib/i18n'
-import type { Task, Designer, TaskStatus } from '../../types'
+import { api } from '../../lib/api'
+import type { Task, Designer, TaskStatus, Attachment } from '../../types'
 
 interface Props {
   task: Task
   designers: Designer[]
   onClose: () => void
   onUpdate: (id: string, updates: Partial<Task>) => void
+  onDelete: (id: string) => void
 }
 
 const statusOptions: TaskStatus[] = ['backlog', 'assigned', 'in_progress', 'review', 'done']
 
-export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
+function getAttachmentIcon(mime: string) {
+  if (mime.startsWith('image/')) return <Image size={12} className="text-blue-500" />
+  if (mime === 'application/pdf') return <FileText size={12} className="text-red-500" />
+  return <Paperclip size={12} className="text-gray-400" />
+}
+
+function canPreview(att: Attachment) {
+  return (
+    att.mime_type.startsWith('image/') ||
+    att.mime_type === 'application/pdf'
+  )
+}
+
+export function TaskDetailModal({ task, designers, onClose, onUpdate, onDelete }: Props) {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false)
   const [showAssignDropdown, setShowAssignDropdown] = useState(false)
+  const [previewAtt, setPreviewAtt] = useState<{ filename: string; data: string; mime_type: string } | null>(null)
+  const [loadingAtt, setLoadingAtt] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const analysis = task.ai_analysis
+
+  const handlePreview = async (att: Attachment) => {
+    setLoadingAtt(att.id)
+    try {
+      const res = await api.getTaskEmail(task.id)
+      const found = res.attachments.find(
+        (a: { filename: string }) => a.filename === att.filename
+      )
+      if (found?.data) {
+        setPreviewAtt({
+          filename: found.filename,
+          data: found.data,
+          mime_type: found.mime_type,
+        })
+      }
+    } catch {
+      // failed to load
+    } finally {
+      setLoadingAtt(null)
+    }
+  }
+
+  const handleDelete = () => {
+    onDelete(task.id)
+    onClose()
+  }
+
+  // Attachment preview overlay
+  if (previewAtt) {
+    const isImage = previewAtt.mime_type.startsWith('image/')
+    const isPdf = previewAtt.mime_type === 'application/pdf'
+    // Convert URL-safe base64 to standard
+    const b64 = previewAtt.data.replace(/-/g, '+').replace(/_/g, '/')
+    const dataUrl = `data:${previewAtt.mime_type};base64,${b64}`
+
+    return (
+      <div
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+        onClick={() => setPreviewAtt(null)}
+      >
+        <div
+          className="relative max-h-[90vh] max-w-4xl w-full rounded-2xl bg-white shadow-2xl overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+            <span className="text-sm font-medium text-gray-700 truncate">{previewAtt.filename}</span>
+            <button
+              onClick={() => setPreviewAtt(null)}
+              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="overflow-auto max-h-[80vh] flex items-center justify-center bg-gray-50 p-4">
+            {isImage && (
+              <img src={dataUrl} alt={previewAtt.filename} className="max-w-full max-h-[75vh] object-contain" />
+            )}
+            {isPdf && (
+              <iframe src={dataUrl} className="w-full h-[75vh]" title={previewAtt.filename} />
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -40,14 +126,10 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
                 {uk.categories[task.category] || task.category}
               </span>
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              {task.subject}
-            </h2>
+            <h2 className="text-lg font-semibold text-gray-900">{task.subject}</h2>
             <p className="mt-1 text-sm text-gray-400">
               {task.sender} &middot;{' '}
-              {format(new Date(task.created_at), 'dd MMM yyyy, HH:mm', {
-                locale: ukLocale,
-              })}
+              {format(new Date(task.created_at), 'dd MMM yyyy, HH:mm', { locale: ukLocale })}
             </p>
           </div>
           <button
@@ -59,8 +141,9 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
         </div>
 
         <div className="grid gap-5 p-5 md:grid-cols-3">
-          {/* Email body */}
+          {/* Main content */}
           <div className="md:col-span-2 space-y-4">
+            {/* Email body */}
             <div>
               <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-500">
                 <Tag size={14} /> Зміст листа
@@ -70,6 +153,7 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
               </div>
             </div>
 
+            {/* Attachments with preview */}
             {task.attachments && task.attachments.length > 0 && (
               <div>
                 <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-500">
@@ -77,28 +161,37 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {task.attachments.map((att) => (
-                    <div
+                    <button
                       key={att.id}
-                      className="flex items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-500"
+                      onClick={() => canPreview(att) && handlePreview(att)}
+                      disabled={!canPreview(att) || loadingAtt === att.id}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${
+                        canPreview(att)
+                          ? 'border-blue-100 bg-blue-50 text-blue-600 hover:border-blue-200 hover:bg-blue-100 cursor-pointer'
+                          : 'border-gray-100 bg-gray-50 text-gray-500 cursor-default'
+                      }`}
                     >
-                      <Paperclip size={12} />
-                      <span className="max-w-[200px] truncate">{att.filename}</span>
-                      <span className="text-gray-300">
-                        {(att.size_bytes / 1024).toFixed(0)} KB
-                      </span>
-                    </div>
+                      {loadingAtt === att.id ? (
+                        <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+                      ) : (
+                        getAttachmentIcon(att.mime_type)
+                      )}
+                      <span className="max-w-[160px] truncate">{att.filename}</span>
+                      {canPreview(att) && <Eye size={11} className="text-blue-400" />}
+                      <span className="text-gray-300">{(att.size_bytes / 1024).toFixed(0)}KB</span>
+                    </button>
                   ))}
                 </div>
               </div>
             )}
 
+            {/* AI Analysis */}
             {analysis && (
               <div>
                 <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-500">
                   <Brain size={14} /> {uk.aiAnalysis}
                 </h3>
                 <div className="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50 p-4">
-                  {/* Priority + hours */}
                   <div className="flex items-center gap-3">
                     {analysis.priority && (
                       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border ${
@@ -115,19 +208,14 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
                     )}
                     {analysis.estimated_hours > 0 && (
                       <span className="flex items-center gap-1 text-xs text-gray-500">
-                        <Clock size={11} />
-                        ~{analysis.estimated_hours} год
+                        <Clock size={11} /> ~{analysis.estimated_hours} год
                       </span>
                     )}
                   </div>
-
                   <p className="text-sm text-gray-700">{analysis.summary_uk}</p>
-
                   {analysis.key_requirements?.length > 0 && (
                     <div>
-                      <p className="mb-1 text-xs font-medium text-gray-500">
-                        {uk.requirements}:
-                      </p>
+                      <p className="mb-1 text-xs font-medium text-gray-500">{uk.requirements}:</p>
                       <ul className="space-y-1">
                         {analysis.key_requirements.map((req, i) => (
                           <li key={i} className="flex items-start gap-2 text-xs text-gray-500">
@@ -138,12 +226,10 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
                       </ul>
                     </div>
                   )}
-
                   {analysis.complexity_reasoning && (
                     <div className="border-t border-indigo-100 pt-2">
                       <p className="text-[11px] text-gray-400">
-                        <span className="font-medium">{uk.reasoning}:</span>{' '}
-                        {analysis.complexity_reasoning}
+                        <span className="font-medium">{uk.reasoning}:</span> {analysis.complexity_reasoning}
                       </p>
                     </div>
                   )}
@@ -151,7 +237,6 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
               </div>
             )}
 
-            {/* Technical notes */}
             {analysis?.technical_notes && analysis.technical_notes.length > 0 && (
               <div>
                 <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-500">
@@ -168,7 +253,6 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
               </div>
             )}
 
-            {/* Prepress checklist */}
             {analysis?.prepress_checklist && analysis.prepress_checklist.length > 0 && (
               <div>
                 <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-500">
@@ -188,10 +272,9 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
 
           {/* Sidebar controls */}
           <div className="space-y-4">
+            {/* Status */}
             <div className="relative">
-              <label className="mb-1 block text-xs font-medium text-gray-500">
-                {uk.status}
-              </label>
+              <label className="mb-1 block text-xs font-medium text-gray-500">{uk.status}</label>
               <button
                 onClick={() => setShowStatusDropdown(!showStatusDropdown)}
                 className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:border-gray-300"
@@ -202,14 +285,8 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
               {showStatusDropdown && (
                 <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
                   {statusOptions.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => {
-                        onUpdate(task.id, { status: s })
-                        setShowStatusDropdown(false)
-                      }}
-                      className="w-full px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50"
-                    >
+                    <button key={s} onClick={() => { onUpdate(task.id, { status: s }); setShowStatusDropdown(false) }}
+                      className="w-full px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50">
                       {uk.statuses[s]}
                     </button>
                   ))}
@@ -217,10 +294,9 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
               )}
             </div>
 
+            {/* Assign */}
             <div className="relative">
-              <label className="mb-1 block text-xs font-medium text-gray-500">
-                {uk.assignTo}
-              </label>
+              <label className="mb-1 block text-xs font-medium text-gray-500">{uk.assignTo}</label>
               <button
                 onClick={() => setShowAssignDropdown(!showAssignDropdown)}
                 className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:border-gray-300"
@@ -237,41 +313,51 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
               </button>
               {showAssignDropdown && (
                 <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                  <button
-                    onClick={() => {
-                      onUpdate(task.id, { assigned_to: null, status: 'backlog' })
-                      setShowAssignDropdown(false)
-                    }}
-                    className="w-full px-3 py-1.5 text-left text-sm text-gray-400 hover:bg-gray-50"
-                  >
-                    <User size={14} className="mr-2 inline" />
-                    Не призначено
+                  <button onClick={() => { onUpdate(task.id, { assigned_to: null, status: 'backlog' }); setShowAssignDropdown(false) }}
+                    className="w-full px-3 py-1.5 text-left text-sm text-gray-400 hover:bg-gray-50">
+                    <User size={14} className="mr-2 inline" /> Не призначено
                   </button>
                   {designers.map((d) => (
-                    <button
-                      key={d.id}
-                      onClick={() => {
-                        onUpdate(task.id, { assigned_to: d.id, status: 'assigned' })
-                        setShowAssignDropdown(false)
-                      }}
-                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <Avatar name={d.name} url={d.avatar_url} size="sm" />
-                      {d.name}
+                    <button key={d.id} onClick={() => { onUpdate(task.id, { assigned_to: d.id, status: 'assigned' }); setShowAssignDropdown(false) }}
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50">
+                      <Avatar name={d.name} url={d.avatar_url} size="sm" /> {d.name}
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
+            {/* Mark done */}
             {task.status !== 'done' && (
-              <button
-                onClick={() => onUpdate(task.id, { status: 'done' })}
-                className="w-full rounded-lg bg-green-50 border border-green-200 px-4 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-100"
-              >
+              <button onClick={() => onUpdate(task.id, { status: 'done' })}
+                className="w-full rounded-lg bg-green-50 border border-green-200 px-4 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-100">
                 {uk.markDone}
               </button>
             )}
+
+            {/* Delete */}
+            <div className="border-t border-gray-100 pt-3">
+              {!confirmDelete ? (
+                <button onClick={() => setConfirmDelete(true)}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm text-red-500 transition-colors hover:bg-red-50">
+                  <Trash2 size={14} /> Видалити завдання
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-red-500 text-center">Видалити назавжди?</p>
+                  <div className="flex gap-2">
+                    <button onClick={() => setConfirmDelete(false)}
+                      className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-50">
+                      Скасувати
+                    </button>
+                    <button onClick={handleDelete}
+                      className="flex-1 rounded-lg bg-red-500 px-3 py-1.5 text-xs text-white hover:bg-red-600">
+                      Видалити
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

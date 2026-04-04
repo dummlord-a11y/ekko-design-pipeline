@@ -65,5 +65,22 @@ export function useTasks() {
     [fetchTasks]
   )
 
-  return { tasks, loading, error, refetch: fetchTasks, updateTask }
+  const deleteTask = useCallback(
+    async (id: string) => {
+      setTasks((prev) => prev.filter((t) => t.id !== id))
+
+      const { error: err } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', id)
+
+      if (err) {
+        fetchTasks()
+        throw err
+      }
+    },
+    [fetchTasks]
+  )
+
+  return { tasks, loading, error, refetch: fetchTasks, updateTask, deleteTask }
 }
