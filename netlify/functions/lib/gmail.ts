@@ -49,7 +49,7 @@ export async function fetchDesignEmails(_afterDate?: string) {
   const res = await gmail.users.messages.list({
     userId: 'me',
     q: query,
-    maxResults: 50,
+    maxResults: 15,
   })
 
   return res.data.messages || []

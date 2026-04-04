@@ -7,6 +7,12 @@
   node_bundler = "esbuild"
   external_node_modules = ["@anthropic-ai/sdk"]
 
+[functions."sync-gmail"]
+  timeout = 60
+
+[functions."scheduled-sync"]
+  timeout = 60
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
