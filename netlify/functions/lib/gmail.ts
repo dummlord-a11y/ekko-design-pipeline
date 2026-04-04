@@ -44,7 +44,9 @@ export async function fetchDesignEmails(_afterDate?: string) {
   yesterday.setHours(0, 0, 0, 0)
   const formatted = `${yesterday.getFullYear()}/${yesterday.getMonth() + 1}/${yesterday.getDate()}`
 
-  const query = `in:inbox after:${formatted} -category:promotions -category:social -category:updates -category:forums`
+  // Fetch all recent emails — no category exclusions, AI handles filtering
+  const query = `after:${formatted}`
+  console.log(`[Gmail] Query: "${query}", yesterday=${formatted}`)
 
   const res = await gmail.users.messages.list({
     userId: 'me',
