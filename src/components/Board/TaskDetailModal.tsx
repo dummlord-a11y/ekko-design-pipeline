@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Paperclip, Brain, Clock, Tag, User, ChevronDown } from 'lucide-react'
+import { X, Paperclip, Brain, Clock, Tag, User, ChevronDown, AlertTriangle, Wrench, CheckSquare } from 'lucide-react'
 import { format } from 'date-fns'
 import { uk as ukLocale } from 'date-fns/locale'
 import { ComplexityBadge } from '../common/ComplexityBadge'
@@ -98,14 +98,30 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
                   <Brain size={14} /> {uk.aiAnalysis}
                 </h3>
                 <div className="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50 p-4">
-                  <p className="text-sm text-gray-700">{analysis.summary_uk}</p>
+                  {/* Priority + hours */}
+                  <div className="flex items-center gap-3">
+                    {analysis.priority && (
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border ${
+                        analysis.priority === 'critical' ? 'bg-red-50 text-red-600 border-red-200' :
+                        analysis.priority === 'high' ? 'bg-orange-50 text-orange-600 border-orange-200' :
+                        analysis.priority === 'medium' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                        'bg-gray-50 text-gray-500 border-gray-200'
+                      }`}>
+                        {analysis.priority === 'critical' && <AlertTriangle size={10} />}
+                        {analysis.priority === 'critical' ? 'Критично' :
+                         analysis.priority === 'high' ? 'Важливо' :
+                         analysis.priority === 'medium' ? 'Стандартно' : 'Не терміново'}
+                      </span>
+                    )}
+                    {analysis.estimated_hours > 0 && (
+                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                        <Clock size={11} />
+                        ~{analysis.estimated_hours} год
+                      </span>
+                    )}
+                  </div>
 
-                  {analysis.estimated_hours > 0 && (
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <Clock size={12} />
-                      {uk.estimatedHours}: ~{analysis.estimated_hours} год
-                    </div>
-                  )}
+                  <p className="text-sm text-gray-700">{analysis.summary_uk}</p>
 
                   {analysis.key_requirements?.length > 0 && (
                     <div>
@@ -132,6 +148,40 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate }: Props) {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Technical notes */}
+            {analysis?.technical_notes && analysis.technical_notes.length > 0 && (
+              <div>
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-500">
+                  <Wrench size={14} /> Технічні зауваження
+                </h3>
+                <ul className="space-y-1.5 rounded-lg border border-amber-100 bg-amber-50 p-3">
+                  {analysis.technical_notes.map((note, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-gray-600">
+                      <span className="mt-1 h-1 w-1 flex-shrink-0 rounded-full bg-amber-400" />
+                      {note}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Prepress checklist */}
+            {analysis?.prepress_checklist && analysis.prepress_checklist.length > 0 && (
+              <div>
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-500">
+                  <CheckSquare size={14} /> Допечатна підготовка
+                </h3>
+                <ul className="space-y-1.5 rounded-lg border border-green-100 bg-green-50 p-3">
+                  {analysis.prepress_checklist.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-gray-600">
+                      <span className="mt-0.5 text-green-400">☐</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>

@@ -31,6 +31,7 @@ export function TaskCard({ task, onClick, overlay }: Props) {
 
   const attachmentCount = task.attachments?.length || 0
   const categoryLabel = uk.categories[task.category] || task.category
+  const priority = task.ai_analysis?.priority || 'medium'
 
   return (
     <div
@@ -42,9 +43,17 @@ export function TaskCard({ task, onClick, overlay }: Props) {
       className="group cursor-grab rounded-lg border border-gray-100 bg-white p-3 shadow-sm transition-all hover:border-indigo-200 hover:shadow-md active:cursor-grabbing"
     >
       <div className="mb-2 flex items-start justify-between gap-2">
-        <span className="text-[11px] text-gray-400 truncate max-w-[140px]">
-          {task.sender}
-        </span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          {priority === 'critical' && (
+            <span className="flex-shrink-0 h-2 w-2 rounded-full bg-red-500 animate-pulse" title="Критично" />
+          )}
+          {priority === 'high' && (
+            <span className="flex-shrink-0 h-2 w-2 rounded-full bg-orange-400" title="Важливо" />
+          )}
+          <span className="text-[11px] text-gray-400 truncate">
+            {task.sender}
+          </span>
+        </div>
         <ComplexityBadge level={task.complexity} />
       </div>
 

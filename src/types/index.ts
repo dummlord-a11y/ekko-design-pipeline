@@ -30,13 +30,18 @@ export interface Task {
   designer?: Designer
 }
 
+export type TaskPriority = 'critical' | 'high' | 'medium' | 'low'
+
 export interface AiAnalysis {
   complexity: number
+  priority: TaskPriority
   category: string
   summary_uk: string
   complexity_reasoning: string
   estimated_hours: number
   key_requirements: string[]
+  technical_notes: string[]
+  prepress_checklist: string[]
 }
 
 export interface Designer {

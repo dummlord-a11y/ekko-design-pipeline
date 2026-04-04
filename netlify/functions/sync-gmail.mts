@@ -1,8 +1,12 @@
 import type { Context } from '@netlify/functions'
 import { getSupabaseAdmin } from './lib/supabase-admin.js'
-import { fetchDesignEmails, getMessageDetails } from './lib/gmail.js'
-import { analyzeEmail } from './lib/claude-analyzer.js'
+import { fetchDesignEmails, getMessageDetails, getAttachmentData } from './lib/gmail.js'
+import { checkRelevanceAndAnalyze } from './lib/claude-analyzer.js'
 import { json, error } from './lib/response.js'
+
+const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const MAX_IMAGES = 3
+const MAX_IMAGE_SIZE = 4 * 1024 * 1024 // 4MB per image
 
 export default async function handler(req: Request, _context: Context) {
   if (req.method !== 'POST') {
@@ -12,22 +16,19 @@ export default async function handler(req: Request, _context: Context) {
   try {
     const supabase = getSupabaseAdmin()
 
-    // Get last sync time
     const { data: syncMeta } = await supabase
       .from('sync_metadata')
       .select('last_synced_at')
       .single()
 
     const afterDate = syncMeta?.last_synced_at || undefined
-
-    // Fetch emails
     const messages = await fetchDesignEmails(afterDate)
     let processed = 0
+    let skipped = 0
     const errors: string[] = []
 
     for (const msg of messages) {
       try {
-        // Check if already exists
         const { data: existing } = await supabase
           .from('tasks')
           .select('id')
@@ -36,17 +37,41 @@ export default async function handler(req: Request, _context: Context) {
 
         if (existing) continue
 
-        // Get full message
         const details = await getMessageDetails(msg.id!)
 
-        // Analyze with Claude
-        const analysis = await analyzeEmail({
+        // Fetch image attachments for visual analysis
+        const images: Array<{ data: string; mediaType: string }> = []
+        const imageAttachments = details.attachments
+          .filter(a => IMAGE_MIME_TYPES.includes(a.mimeType) && a.size < MAX_IMAGE_SIZE)
+          .slice(0, MAX_IMAGES)
+
+        for (const att of imageAttachments) {
+          try {
+            const base64Data = await getAttachmentData(details.messageId, att.attachmentId)
+            if (base64Data) {
+              // Gmail returns URL-safe base64, convert to standard base64
+              const standardBase64 = base64Data.replace(/-/g, '+').replace(/_/g, '/')
+              images.push({ data: standardBase64, mediaType: att.mimeType })
+            }
+          } catch {
+            // Skip failed image downloads — still analyze text
+          }
+        }
+
+        // Check relevance + analyze (returns null if not a design request)
+        const analysis = await checkRelevanceAndAnalyze({
           subject: details.subject,
           body: details.body,
           attachmentNames: details.attachments.map((a) => a.filename),
+          images,
         })
 
-        // Insert task
+        if (!analysis) {
+          skipped++
+          console.log(`[Sync] Skipped non-design email: "${details.subject}" from ${details.sender}`)
+          continue
+        }
+
         const { data: task, error: taskErr } = await supabase
           .from('tasks')
           .insert({
@@ -71,17 +96,16 @@ export default async function handler(req: Request, _context: Context) {
           continue
         }
 
-        // Insert attachments
         if (details.attachments.length > 0 && task) {
-          const attachmentRows = details.attachments.map((att) => ({
-            task_id: task.id,
-            filename: att.filename,
-            mime_type: att.mimeType,
-            size_bytes: att.size,
-            gmail_attachment_id: att.attachmentId,
-          }))
-
-          await supabase.from('attachments').insert(attachmentRows)
+          await supabase.from('attachments').insert(
+            details.attachments.map((att) => ({
+              task_id: task.id,
+              filename: att.filename,
+              mime_type: att.mimeType,
+              size_bytes: att.size,
+              gmail_attachment_id: att.attachmentId,
+            }))
+          )
         }
 
         processed++
@@ -91,13 +115,12 @@ export default async function handler(req: Request, _context: Context) {
       }
     }
 
-    // Update sync timestamp
     await supabase
       .from('sync_metadata')
       .update({ last_synced_at: new Date().toISOString() })
       .eq('id', 1)
 
-    return json({ processed, errors, timestamp: new Date().toISOString() })
+    return json({ processed, skipped, errors, timestamp: new Date().toISOString() })
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e)
     return error(`Sync failed: ${errMsg}`)

@@ -1,12 +1,15 @@
 import type { Config, Context } from '@netlify/functions'
 import { getSupabaseAdmin } from './lib/supabase-admin.js'
-import { fetchDesignEmails, getMessageDetails } from './lib/gmail.js'
-import { analyzeEmail } from './lib/claude-analyzer.js'
+import { fetchDesignEmails, getMessageDetails, getAttachmentData } from './lib/gmail.js'
+import { checkRelevanceAndAnalyze } from './lib/claude-analyzer.js'
 
-// Runs every 2 hours
 export const config: Config = {
   schedule: '0 */2 * * *',
 }
+
+const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const MAX_IMAGES = 3
+const MAX_IMAGE_SIZE = 4 * 1024 * 1024
 
 export default async function handler(_req: Request, _context: Context) {
   console.log('[Scheduled Sync] Starting at', new Date().toISOString())
@@ -23,6 +26,7 @@ export default async function handler(_req: Request, _context: Context) {
     const messages = await fetchDesignEmails(afterDate)
 
     let processed = 0
+    let skipped = 0
     const errors: string[] = []
 
     for (const msg of messages) {
@@ -37,11 +41,33 @@ export default async function handler(_req: Request, _context: Context) {
 
         const details = await getMessageDetails(msg.id!)
 
-        const analysis = await analyzeEmail({
+        // Fetch images for visual analysis
+        const images: Array<{ data: string; mediaType: string }> = []
+        const imageAttachments = details.attachments
+          .filter(a => IMAGE_MIME_TYPES.includes(a.mimeType) && a.size < MAX_IMAGE_SIZE)
+          .slice(0, MAX_IMAGES)
+
+        for (const att of imageAttachments) {
+          try {
+            const base64Data = await getAttachmentData(details.messageId, att.attachmentId)
+            if (base64Data) {
+              const standardBase64 = base64Data.replace(/-/g, '+').replace(/_/g, '/')
+              images.push({ data: standardBase64, mediaType: att.mimeType })
+            }
+          } catch { /* skip */ }
+        }
+
+        const analysis = await checkRelevanceAndAnalyze({
           subject: details.subject,
           body: details.body,
           attachmentNames: details.attachments.map((a) => a.filename),
+          images,
         })
+
+        if (!analysis) {
+          skipped++
+          continue
+        }
 
         const { data: task, error: taskErr } = await supabase
           .from('tasks')
@@ -90,10 +116,10 @@ export default async function handler(_req: Request, _context: Context) {
       .update({ last_synced_at: new Date().toISOString() })
       .eq('id', 1)
 
-    console.log(`[Scheduled Sync] Done. Processed: ${processed}, Errors: ${errors.length}`)
+    console.log(`[Scheduled Sync] Done. Processed: ${processed}, Skipped: ${skipped}, Errors: ${errors.length}`)
 
     return new Response(
-      JSON.stringify({ processed, errors }),
+      JSON.stringify({ processed, skipped, errors }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )
   } catch (e) {
