@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { RefreshCw, Printer, Search } from 'lucide-react'
+import { RefreshCw, Printer, Search, Settings } from 'lucide-react'
 import { api } from '../../lib/api'
 import { uk } from '../../lib/i18n'
 
@@ -8,9 +8,10 @@ interface Props {
   onSyncComplete: () => void
   searchQuery: string
   onSearchChange: (q: string) => void
+  onSettingsClick: () => void
 }
 
-export function Header({ lastSync, onSyncComplete, searchQuery, onSearchChange }: Props) {
+export function Header({ lastSync, onSyncComplete, searchQuery, onSearchChange, onSettingsClick }: Props) {
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
 
@@ -70,6 +71,15 @@ export function Header({ lastSync, onSyncComplete, searchQuery, onSearchChange }
             className={syncing ? 'animate-spin' : ''}
           />
           {syncing ? uk.syncing : uk.syncGmail}
+        </button>
+
+        {/* Settings button */}
+        <button
+          onClick={onSettingsClick}
+          className="rounded-lg p-2 text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
+          title="Налаштування"
+        >
+          <Settings size={18} />
         </button>
       </div>
 

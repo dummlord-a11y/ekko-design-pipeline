@@ -1,18 +1,37 @@
 import { google } from 'googleapis'
+import { getSupabaseAdmin } from './supabase-admin.js'
 
-function getOAuth2Client() {
-  const client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET
-  )
-  client.setCredentials({
-    refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-  })
+async function getOAuth2Client() {
+  const supabase = getSupabaseAdmin()
+
+  // Try reading credentials from Supabase settings first, fall back to env vars
+  const keys = ['google_client_id', 'google_client_secret', 'google_refresh_token']
+  const { data } = await supabase
+    .from('settings')
+    .select('key, value')
+    .in('key', keys)
+
+  const settings: Record<string, string> = {}
+  for (const row of data || []) {
+    settings[row.key] = row.value
+  }
+
+  const clientId = settings.google_client_id || process.env.GOOGLE_CLIENT_ID
+  const clientSecret = settings.google_client_secret || process.env.GOOGLE_CLIENT_SECRET
+  const refreshToken = settings.google_refresh_token || process.env.GOOGLE_REFRESH_TOKEN
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error('Google OAuth not configured. Go to Settings to connect Gmail.')
+  }
+
+  const client = new google.auth.OAuth2(clientId, clientSecret)
+  client.setCredentials({ refresh_token: refreshToken })
   return client
 }
 
-export function getGmailClient() {
-  return google.gmail({ version: 'v1', auth: getOAuth2Client() })
+export async function getGmailClient() {
+  const auth = await getOAuth2Client()
+  return google.gmail({ version: 'v1', auth })
 }
 
 const DESIGN_QUERY = [
@@ -23,7 +42,7 @@ const DESIGN_QUERY = [
 ].join(' ')
 
 export async function fetchDesignEmails(afterDate?: string) {
-  const gmail = getGmailClient()
+  const gmail = await getGmailClient()
   let query = DESIGN_QUERY
   if (afterDate) {
     const d = new Date(afterDate)
@@ -41,7 +60,7 @@ export async function fetchDesignEmails(afterDate?: string) {
 }
 
 export async function getMessageDetails(messageId: string) {
-  const gmail = getGmailClient()
+  const gmail = await getGmailClient()
   const res = await gmail.users.messages.get({
     userId: 'me',
     id: messageId,
@@ -122,7 +141,7 @@ export async function getMessageDetails(messageId: string) {
 }
 
 export async function getAttachmentData(messageId: string, attachmentId: string) {
-  const gmail = getGmailClient()
+  const gmail = await getGmailClient()
   const res = await gmail.users.messages.attachments.get({
     userId: 'me',
     messageId,

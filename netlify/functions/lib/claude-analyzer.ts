@@ -1,8 +1,19 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { getSupabaseAdmin } from './supabase-admin.js'
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
+async function getAnthropicClient() {
+  const supabase = getSupabaseAdmin()
+  const { data } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'anthropic_api_key')
+    .single()
+
+  const apiKey = data?.value || process.env.ANTHROPIC_API_KEY
+  if (!apiKey) throw new Error('Anthropic API key not configured. Go to Settings.')
+
+  return new Anthropic({ apiKey })
+}
 
 interface AnalysisInput {
   subject: string
@@ -54,6 +65,7 @@ ${input.body.slice(0, 3000)}
 
 export async function analyzeEmail(input: AnalysisInput): Promise<AnalysisResult> {
   try {
+    const client = await getAnthropicClient()
     const response = await client.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1024,
