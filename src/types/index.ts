@@ -50,6 +50,8 @@ export interface Designer {
   email: string
   avatar_url: string | null
   role: string
+  gmail_refresh_token: string | null
+  gmail_connected_at: string | null
   created_at: string
 }
 

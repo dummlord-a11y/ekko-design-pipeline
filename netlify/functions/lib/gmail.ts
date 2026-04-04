@@ -1,27 +1,12 @@
-import { google } from 'googleapis'
+import { google, type gmail_v1 } from 'googleapis'
 import { getSupabaseAdmin } from './supabase-admin.js'
 
-async function getOAuth2Client() {
-  const supabase = getSupabaseAdmin()
+function createOAuth2Client(refreshToken: string) {
+  const clientId = process.env.GOOGLE_CLIENT_ID
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET
 
-  // Try reading credentials from Supabase settings first, fall back to env vars
-  const keys = ['google_client_id', 'google_client_secret', 'google_refresh_token']
-  const { data } = await supabase
-    .from('settings')
-    .select('key, value')
-    .in('key', keys)
-
-  const settings: Record<string, string> = {}
-  for (const row of data || []) {
-    settings[row.key] = row.value
-  }
-
-  const clientId = settings.google_client_id || process.env.GOOGLE_CLIENT_ID
-  const clientSecret = settings.google_client_secret || process.env.GOOGLE_CLIENT_SECRET
-  const refreshToken = settings.google_refresh_token || process.env.GOOGLE_REFRESH_TOKEN
-
-  if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error('Google OAuth not configured. Go to Settings to connect Gmail.')
+  if (!clientId || !clientSecret) {
+    throw new Error('Google OAuth env vars not configured.')
   }
 
   const client = new google.auth.OAuth2(clientId, clientSecret)
@@ -29,22 +14,81 @@ async function getOAuth2Client() {
   return client
 }
 
-export async function getGmailClient() {
-  const auth = await getOAuth2Client()
+/** Get Gmail client for the main (global) account */
+export async function getGmailClient(): Promise<gmail_v1.Gmail> {
+  const supabase = getSupabaseAdmin()
+  const { data } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'google_refresh_token')
+    .single()
+
+  const refreshToken = data?.value || process.env.GOOGLE_REFRESH_TOKEN
+  if (!refreshToken) {
+    throw new Error('Google OAuth not configured. Go to Settings to connect Gmail.')
+  }
+
+  const auth = createOAuth2Client(refreshToken)
   return google.gmail({ version: 'v1', auth })
 }
 
-export async function fetchDesignEmails(_afterDate?: string) {
-  const gmail = await getGmailClient()
+/** Get Gmail client for a specific refresh token */
+export function getGmailClientForToken(refreshToken: string): gmail_v1.Gmail {
+  const auth = createOAuth2Client(refreshToken)
+  return google.gmail({ version: 'v1', auth })
+}
 
-  // Fetch all inbox emails from yesterday+today
-  // AI relevance filter handles the rest (skips spam, newsletters, etc.)
+/** Get all connected Gmail accounts (global + designers) */
+export async function getAllGmailClients(): Promise<Array<{ label: string; gmail: gmail_v1.Gmail }>> {
+  const supabase = getSupabaseAdmin()
+  const clients: Array<{ label: string; gmail: gmail_v1.Gmail }> = []
+
+  // Global account
+  const { data: globalToken } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'google_refresh_token')
+    .single()
+
+  if (globalToken?.value) {
+    try {
+      clients.push({
+        label: 'main',
+        gmail: getGmailClientForToken(globalToken.value),
+      })
+    } catch { /* skip */ }
+  }
+
+  // Designer accounts
+  const { data: designers } = await supabase
+    .from('designers')
+    .select('id, name, gmail_refresh_token')
+    .not('gmail_refresh_token', 'is', null)
+
+  for (const d of designers || []) {
+    if (d.gmail_refresh_token) {
+      try {
+        clients.push({
+          label: d.name,
+          gmail: getGmailClientForToken(d.gmail_refresh_token),
+        })
+      } catch { /* skip */ }
+    }
+  }
+
+  return clients
+}
+
+function getDateQuery(): string {
   const yesterday = new Date()
   yesterday.setDate(yesterday.getDate() - 1)
   yesterday.setHours(0, 0, 0, 0)
-  const formatted = `${yesterday.getFullYear()}/${yesterday.getMonth() + 1}/${yesterday.getDate()}`
+  return `${yesterday.getFullYear()}/${yesterday.getMonth() + 1}/${yesterday.getDate()}`
+}
 
-  // Fetch all recent inbox emails — AI relevance filter handles the rest
+/** Fetch emails from a single Gmail client */
+export async function fetchEmailsFromClient(gmail: gmail_v1.Gmail) {
+  const formatted = getDateQuery()
   const query = `after:${formatted}`
 
   const res = await gmail.users.messages.list({
@@ -56,8 +100,28 @@ export async function fetchDesignEmails(_afterDate?: string) {
   return res.data.messages || []
 }
 
-export async function getMessageDetails(messageId: string) {
-  const gmail = await getGmailClient()
+/** Fetch emails from ALL connected accounts */
+export async function fetchAllDesignEmails(): Promise<Array<{ id: string; gmail: gmail_v1.Gmail }>> {
+  const clients = await getAllGmailClients()
+  const allMessages: Array<{ id: string; gmail: gmail_v1.Gmail }> = []
+
+  for (const client of clients) {
+    try {
+      const messages = await fetchEmailsFromClient(client.gmail)
+      for (const msg of messages) {
+        if (msg.id) {
+          allMessages.push({ id: msg.id, gmail: client.gmail })
+        }
+      }
+    } catch (e) {
+      console.error(`[Gmail] Failed to fetch from ${client.label}:`, e)
+    }
+  }
+
+  return allMessages
+}
+
+export async function getMessageDetails(gmail: gmail_v1.Gmail, messageId: string) {
   const res = await gmail.users.messages.get({
     userId: 'me',
     id: messageId,
@@ -72,7 +136,6 @@ export async function getMessageDetails(messageId: string) {
   const subject = getHeader('Subject')
   const threadId = res.data.threadId || ''
 
-  // Extract body
   let body = ''
   const payload = res.data.payload
 
@@ -96,7 +159,6 @@ export async function getMessageDetails(messageId: string) {
 
   body = extractText(payload)
 
-  // Extract attachments metadata
   const attachments: Array<{
     filename: string
     mimeType: string
@@ -121,24 +183,14 @@ export async function getMessageDetails(messageId: string) {
 
   findAttachments(payload)
 
-  // Extract sender name and email
   const senderMatch = sender.match(/^(.+?)\s*<(.+?)>$/)
   const senderName = senderMatch ? senderMatch[1].replace(/"/g, '').trim() : sender
   const senderEmail = senderMatch ? senderMatch[2] : sender
 
-  return {
-    messageId,
-    threadId,
-    sender: senderName,
-    senderEmail,
-    subject,
-    body,
-    attachments,
-  }
+  return { messageId, threadId, sender: senderName, senderEmail, subject, body, attachments }
 }
 
-export async function getAttachmentData(messageId: string, attachmentId: string) {
-  const gmail = await getGmailClient()
+export async function getAttachmentData(gmail: gmail_v1.Gmail, messageId: string, attachmentId: string) {
   const res = await gmail.users.messages.attachments.get({
     userId: 'me',
     messageId,

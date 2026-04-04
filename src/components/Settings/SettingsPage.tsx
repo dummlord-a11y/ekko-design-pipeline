@@ -55,6 +55,25 @@ export function SettingsPage({ onBack }: Props) {
     }
   }
 
+  const connectDesignerGmail = async (designerId: string) => {
+    setMessage(null)
+    try {
+      const res = await fetch('/api/auth-google-start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ designerId }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Connection failed' }))
+        throw new Error(err.error || 'Failed to start OAuth')
+      }
+      const { authUrl } = await res.json()
+      window.location.href = authUrl
+    } catch (e) {
+      setMessage({ type: 'error', text: e instanceof Error ? e.message : 'Failed' })
+    }
+  }
+
   const connectGmail = async () => {
     setConnecting(true)
     setMessage(null)
@@ -226,7 +245,24 @@ export function SettingsPage({ onBack }: Props) {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-700 truncate">{d.name}</p>
                       <p className="text-[11px] text-gray-400 truncate">{d.email}</p>
+                      {d.gmail_connected_at && (
+                        <p className="text-[10px] text-green-500 flex items-center gap-1 mt-0.5">
+                          <CheckCircle size={9} /> Gmail підключено
+                        </p>
+                      )}
                     </div>
+                    {!d.gmail_refresh_token ? (
+                      <button onClick={() => connectDesignerGmail(d.id)}
+                        className="rounded-lg border border-gray-200 px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-50 hover:border-gray-300 flex items-center gap-1">
+                        <Mail size={11} /> Gmail
+                      </button>
+                    ) : (
+                      <button onClick={() => connectDesignerGmail(d.id)}
+                        className="rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-[11px] text-green-600 hover:bg-green-100 flex items-center gap-1"
+                        title="Перепідключити">
+                        <CheckCircle size={11} /> Gmail
+                      </button>
+                    )}
                     <button onClick={() => startEdit(d)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"><Pencil size={14} /></button>
                     <button onClick={() => removeDesigner(d.id)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500"><Trash2 size={14} /></button>
                   </>

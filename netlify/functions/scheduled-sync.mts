@@ -1,11 +1,9 @@
 import type { Config, Context } from '@netlify/functions'
 import { getSupabaseAdmin } from './lib/supabase-admin.js'
-import { fetchDesignEmails, getMessageDetails, getAttachmentData } from './lib/gmail.js'
+import { fetchAllDesignEmails, getMessageDetails, getAttachmentData } from './lib/gmail.js'
 import { checkRelevanceAndAnalyze } from './lib/claude-analyzer.js'
 
-export const config: Config = {
-  schedule: '0 */2 * * *',
-}
+export const config: Config = { schedule: '0 */2 * * *' }
 
 const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_IMAGES = 3
@@ -16,32 +14,19 @@ export default async function handler(_req: Request, _context: Context) {
 
   try {
     const supabase = getSupabaseAdmin()
-
-    const { data: syncMeta } = await supabase
-      .from('sync_metadata')
-      .select('last_synced_at')
-      .single()
-
-    const afterDate = syncMeta?.last_synced_at || undefined
-    const messages = await fetchDesignEmails(afterDate)
+    const allMessages = await fetchAllDesignEmails()
 
     let processed = 0
     let skipped = 0
     const errors: string[] = []
 
-    for (const msg of messages) {
+    for (const { id: msgId, gmail } of allMessages) {
       try {
-        const { data: existing } = await supabase
-          .from('tasks')
-          .select('id')
-          .eq('gmail_message_id', msg.id)
-          .single()
-
+        const { data: existing } = await supabase.from('tasks').select('id').eq('gmail_message_id', msgId).single()
         if (existing) continue
 
-        const details = await getMessageDetails(msg.id!)
+        const details = await getMessageDetails(gmail, msgId)
 
-        // Fetch images for visual analysis
         const images: Array<{ data: string; mediaType: string }> = []
         const imageAttachments = details.attachments
           .filter(a => IMAGE_MIME_TYPES.includes(a.mimeType) && a.size < MAX_IMAGE_SIZE)
@@ -49,84 +34,43 @@ export default async function handler(_req: Request, _context: Context) {
 
         for (const att of imageAttachments) {
           try {
-            const base64Data = await getAttachmentData(details.messageId, att.attachmentId)
-            if (base64Data) {
-              const standardBase64 = base64Data.replace(/-/g, '+').replace(/_/g, '/')
-              images.push({ data: standardBase64, mediaType: att.mimeType })
-            }
+            const base64Data = await getAttachmentData(gmail, details.messageId, att.attachmentId)
+            if (base64Data) images.push({ data: base64Data.replace(/-/g, '+').replace(/_/g, '/'), mediaType: att.mimeType })
           } catch { /* skip */ }
         }
 
         const analysis = await checkRelevanceAndAnalyze({
-          subject: details.subject,
-          body: details.body,
-          attachmentNames: details.attachments.map((a) => a.filename),
-          images,
+          subject: details.subject, body: details.body,
+          attachmentNames: details.attachments.map(a => a.filename), images,
         })
 
-        if (!analysis) {
-          skipped++
-          continue
-        }
+        if (!analysis) { skipped++; continue }
 
-        const { data: task, error: taskErr } = await supabase
-          .from('tasks')
-          .insert({
-            gmail_message_id: details.messageId,
-            gmail_thread_id: details.threadId,
-            sender: details.sender,
-            sender_email: details.senderEmail,
-            subject: details.subject,
-            body_preview: details.body.slice(0, 300),
-            full_body: details.body,
-            complexity: analysis.complexity,
-            category: analysis.category,
-            ai_summary: analysis.summary_uk,
-            ai_analysis: analysis,
-            status: 'backlog',
-          })
-          .select()
-          .single()
+        const { data: task, error: taskErr } = await supabase.from('tasks').insert({
+          gmail_message_id: details.messageId, gmail_thread_id: details.threadId,
+          sender: details.sender, sender_email: details.senderEmail, subject: details.subject,
+          body_preview: details.body.slice(0, 300), full_body: details.body,
+          complexity: analysis.complexity, category: analysis.category,
+          ai_summary: analysis.summary_uk, ai_analysis: analysis, status: 'backlog',
+        }).select().single()
 
-        if (taskErr) {
-          errors.push(`Insert failed: ${taskErr.message}`)
-          continue
-        }
+        if (taskErr) { errors.push(`Insert: ${taskErr.message}`); continue }
 
         if (details.attachments.length > 0 && task) {
-          await supabase.from('attachments').insert(
-            details.attachments.map((att) => ({
-              task_id: task.id,
-              filename: att.filename,
-              mime_type: att.mimeType,
-              size_bytes: att.size,
-              gmail_attachment_id: att.attachmentId,
-            }))
-          )
+          await supabase.from('attachments').insert(details.attachments.map(att => ({
+            task_id: task.id, filename: att.filename, mime_type: att.mimeType,
+            size_bytes: att.size, gmail_attachment_id: att.attachmentId,
+          })))
         }
-
         processed++
-      } catch (e) {
-        errors.push(`${msg.id}: ${e instanceof Error ? e.message : String(e)}`)
-      }
+      } catch (e) { errors.push(`${msgId}: ${e instanceof Error ? e.message : String(e)}`) }
     }
 
-    await supabase
-      .from('sync_metadata')
-      .update({ last_synced_at: new Date().toISOString() })
-      .eq('id', 1)
-
+    await supabase.from('sync_metadata').update({ last_synced_at: new Date().toISOString() }).eq('id', 1)
     console.log(`[Scheduled Sync] Done. Processed: ${processed}, Skipped: ${skipped}, Errors: ${errors.length}`)
-
-    return new Response(
-      JSON.stringify({ processed, skipped, errors }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    )
+    return new Response(JSON.stringify({ processed, skipped, errors }), { status: 200, headers: { 'Content-Type': 'application/json' } })
   } catch (e) {
-    console.error('[Scheduled Sync] Fatal error:', e)
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : String(e) }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    )
+    console.error('[Scheduled Sync] Fatal:', e)
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), { status: 500, headers: { 'Content-Type': 'application/json' } })
   }
 }

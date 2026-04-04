@@ -13,16 +13,23 @@ export default async function handler(req: Request, context: Context) {
       return error('Google OAuth not configured. Contact administrator.', 400)
     }
 
+    // Optional designerId — if provided, we're connecting a designer's inbox
+    const body = await req.json().catch(() => ({}))
+    const designerId = (body as { designerId?: string }).designerId || ''
+
     const origin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/$/, '') || context.site.url || 'http://localhost:8888'
     const redirectUri = `${origin}/api/auth-google-callback`
 
     const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri)
 
+    // Encode origin + designerId in state
+    const state = JSON.stringify({ origin, designerId })
+
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: ['https://www.googleapis.com/auth/gmail.readonly'],
       prompt: 'consent',
-      state: origin,
+      state,
     })
 
     return json({ authUrl })
