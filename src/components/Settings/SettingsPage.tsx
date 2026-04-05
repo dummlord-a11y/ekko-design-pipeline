@@ -20,6 +20,10 @@ export function SettingsPage({ onBack }: Props) {
   const [connecting, setConnecting] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  // Domain whitelist
+  const [domains, setDomains] = useState<string[]>([])
+  const [newDomain, setNewDomain] = useState('')
+
   // Designer management
   const [designers, setDesigners] = useState<Designer[]>([])
   const [newName, setNewName] = useState('')
@@ -49,10 +53,39 @@ export function SettingsPage({ onBack }: Props) {
   const fetchSettings = async () => {
     try {
       const res = await fetch('/api/settings')
-      if (res.ok) setSettings(await res.json())
+      if (res.ok) {
+        const data = await res.json()
+        setSettings(data)
+        // Load domains
+        if (data.allowed_domains?.value) {
+          try { setDomains(JSON.parse(data.allowed_domains.value)) } catch { /* */ }
+        }
+      }
     } catch { /* */ } finally {
       setLoading(false)
     }
+  }
+
+  const saveDomains = async (updatedDomains: string[]) => {
+    setDomains(updatedDomains)
+    try {
+      await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'allowed_domains', value: JSON.stringify(updatedDomains) }),
+      })
+    } catch { /* */ }
+  }
+
+  const addDomain = () => {
+    const d = newDomain.trim().toLowerCase().replace(/^@/, '')
+    if (!d || domains.includes(d)) return
+    saveDomains([...domains, d])
+    setNewDomain('')
+  }
+
+  const removeDomain = (domain: string) => {
+    saveDomains(domains.filter(d => d !== domain))
   }
 
   const disconnectGmail = async () => {
@@ -244,6 +277,59 @@ export function SettingsPage({ onBack }: Props) {
             )}
             {isGoogleConnected ? 'Перепідключити Gmail' : 'Увійти через Google'}
           </button>
+        </section>
+
+        {/* Domain whitelist */}
+        <section className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
+              <Mail size={22} className="text-amber-500" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-sm font-semibold text-gray-900">Дозволені домени</h2>
+              <p className="text-xs text-gray-500">
+                {domains.length > 0
+                  ? 'Обробляються тільки листи з цих доменів'
+                  : 'Обробляються листи з усіх доменів'}
+              </p>
+            </div>
+            {domains.length > 0 && (
+              <span className="rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-medium text-amber-600">
+                {domains.length} {domains.length === 1 ? 'домен' : 'доменів'}
+              </span>
+            )}
+          </div>
+
+          {domains.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {domains.map(d => (
+                <span key={d} className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 border border-gray-200 pl-3 pr-1.5 py-1 text-xs text-gray-700">
+                  @{d}
+                  <button onClick={() => removeDomain(d)}
+                    className="rounded-full p-0.5 text-gray-400 hover:text-red-500 hover:bg-red-50">
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <input value={newDomain} onChange={(e) => setNewDomain(e.target.value)}
+              placeholder="sp-ekko.com.ua"
+              className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-300"
+              onKeyDown={(e) => e.key === 'Enter' && addDomain()} />
+            <button onClick={addDomain} disabled={!newDomain.trim()}
+              className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-40 transition-colors">
+              <Plus size={16} />
+            </button>
+          </div>
+
+          {domains.length === 0 && (
+            <p className="text-[11px] text-gray-400">
+              Без обмежень — система обробляє листи з будь-якого домену. Додайте домен щоб обмежити.
+            </p>
+          )}
         </section>
 
         {/* Designers */}

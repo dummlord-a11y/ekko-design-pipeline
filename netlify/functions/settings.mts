@@ -59,6 +59,7 @@ export default async function handler(req: Request, _context: Context) {
       'google_client_id',
       'google_client_secret',
       'anthropic_api_key',
+      'allowed_domains',
     ]
 
     if (!allowed.includes(key)) {

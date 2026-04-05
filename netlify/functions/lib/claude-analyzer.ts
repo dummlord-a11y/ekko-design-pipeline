@@ -222,7 +222,26 @@ function isObviouslyNotDesign(subject: string, body: string, senderEmail: string
 }
 
 /**
- * Hard pre-filter + single Sonnet call for relevance + analysis.
+ * Load allowed domains from settings. Empty array = no restriction.
+ */
+async function getAllowedDomains(): Promise<string[]> {
+  try {
+    const supabase = getSupabaseAdmin()
+    const { data } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'allowed_domains')
+      .single()
+    if (data?.value) {
+      const domains = JSON.parse(data.value) as string[]
+      return domains.filter(d => d.trim()).map(d => d.trim().toLowerCase())
+    }
+  } catch { /* not configured */ }
+  return []
+}
+
+/**
+ * Hard pre-filter + domain whitelist + single Sonnet call.
  * Returns null if not a design request.
  */
 export async function checkRelevanceAndAnalyze(input: AnalysisInput): Promise<AnalysisResult | null> {
@@ -234,7 +253,24 @@ export async function checkRelevanceAndAnalyze(input: AnalysisInput): Promise<An
     return null
   }
 
-  // Layer 2: Sonnet — relevance + full analysis in one call
+  // Layer 2: Domain whitelist — if configured, skip emails not from allowed domains
+  const allowedDomains = await getAllowedDomains()
+  if (allowedDomains.length > 0) {
+    const senderDomain = (senderEmail.split('@')[1] || '').toLowerCase()
+    const fromAllowed = allowedDomains.includes(senderDomain)
+
+    // Also check if it was forwarded by someone from an allowed domain
+    const fwdMatch = input.body.match(/From:.*?<(.+?)>/i)
+    const fwdDomain = fwdMatch ? (fwdMatch[1].split('@')[1] || '').toLowerCase() : ''
+    const forwardedFromAllowed = fwdDomain && allowedDomains.includes(fwdDomain)
+
+    if (!fromAllowed && !forwardedFromAllowed) {
+      console.log(`[Domain] Skipping "${input.subject}" — ${senderEmail} not in [${allowedDomains}]`)
+      return null
+    }
+  }
+
+  // Layer 3: Sonnet — relevance + full analysis in one call
   try {
     const analysis = await analyzeEmail(input)
 
