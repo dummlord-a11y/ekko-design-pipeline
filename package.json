@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:staging": "npm run build && netlify deploy --prod --dir=dist --site=a5a58a0a-c4d2-406c-969a-f027514e9d1e",
+    "deploy:prod": "npm run build && netlify deploy --prod --dir=dist --site=b780858f-cde0-43b7-a63e-cd3bc485c6b9"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.82.0",
