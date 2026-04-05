@@ -31,6 +31,7 @@ async function processEmail(
     const analysis = await checkRelevanceAndAnalyze({
       subject: details.subject,
       body: details.body,
+      senderEmail: details.senderEmail,
       attachmentNames: details.attachments.map(a => a.filename),
     })
 
@@ -64,6 +65,7 @@ async function processEmail(
       const visualAnalysis = await checkRelevanceAndAnalyze({
         subject: details.subject,
         body: details.body,
+        senderEmail: details.senderEmail,
         attachmentNames: details.attachments.map(a => a.filename),
         images,
       })

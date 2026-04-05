@@ -40,7 +40,7 @@ export default async function handler(_req: Request, _context: Context) {
         }
 
         const analysis = await checkRelevanceAndAnalyze({
-          subject: details.subject, body: details.body,
+          subject: details.subject, body: details.body, senderEmail: details.senderEmail,
           attachmentNames: details.attachments.map(a => a.filename), images,
         })
 

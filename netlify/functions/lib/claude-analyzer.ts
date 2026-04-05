@@ -18,6 +18,7 @@ async function getAnthropicClient() {
 export interface AnalysisInput {
   subject: string
   body: string
+  senderEmail?: string
   attachmentNames: string[]
   /** Base64-encoded images for visual analysis (JPEG/PNG) */
   images?: Array<{ data: string; mediaType: string }>
@@ -200,6 +201,7 @@ const SKIP_SUBJECTS = [
   'subscription', 'unsubscribe', 'newsletter',
   'security alert', 'sign-in', 'login attempt',
   'welcome to', 'account created', 'verify email',
+  'new project', 'project launched', 'deploy',
 ]
 
 function isObviouslyNotDesign(subject: string, body: string, senderEmail: string): boolean {
@@ -221,7 +223,7 @@ function isObviouslyNotDesign(subject: string, body: string, senderEmail: string
  */
 export async function checkRelevanceAndAnalyze(input: AnalysisInput): Promise<AnalysisResult | null> {
   // Step 1: Hard pre-filter — instant skip for obvious non-design emails
-  const senderEmail = input.body.match(/From:.*?<(.+?)>/i)?.[1] || ''
+  const senderEmail = input.senderEmail || input.body.match(/From:.*?<(.+?)>/i)?.[1] || ''
   if (isObviouslyNotDesign(input.subject, input.body, senderEmail)) {
     console.log(`[Pre-filter] Skipping obvious non-design: "${input.subject}"`)
     return null
@@ -237,7 +239,7 @@ export async function checkRelevanceAndAnalyze(input: AnalysisInput): Promise<An
 ЗМІСТ (початок): ${input.body.slice(0, 600)}
 
 ОБОВ'ЯЗКОВО SKIP (це НЕ запит на дизайн):
-- Будь-які автоматичні повідомлення (GitHub, Supabase, Stripe, Google, сервіси)
+- Будь-які автоматичні повідомлення від сервісів (GitHub, Supabase, Stripe, Google, Netlify, AWS, Heroku, DigitalOcean, Linear, Slack, Jira та ін.)
 - Рахунки, оплати, квитанції, інвойси
 - Верифікація, підтвердження, security alerts
 - Newsletters, розсилки, промо-листи
