@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { RefreshCw, Printer, Search, Settings } from 'lucide-react'
+import { RefreshCw, Search, Settings } from 'lucide-react'
 import { uk } from '../../lib/i18n'
 
 interface Props {
@@ -40,13 +40,8 @@ export function Header({ lastSync, onSyncComplete, searchQuery, onSearchChange, 
   return (
     <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3">
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50">
-          <Printer size={18} className="text-indigo-600" />
-        </div>
+        <img src="/ekko-logo.svg" alt="Ekko" className="h-8" />
         <div>
-          <h1 className="text-base font-bold text-gray-900 tracking-tight">
-            {uk.appTitle}
-          </h1>
           {lastSync && (
             <p className="text-[11px] text-gray-400">
               {uk.lastSync}: {new Date(lastSync).toLocaleString('uk-UA')}

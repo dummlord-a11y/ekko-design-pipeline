@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 72" fill="none">
+  <!-- Blue square background -->
+  <rect x="2" y="2" width="68" height="68" rx="3" fill="#0098DA"/>
+
+  <!-- Compass/arrow star shape -->
+  <g transform="translate(36, 36)">
+    <!-- Vertical arrow up -->
+    <polygon points="0,-24 5,-8 0,-12 -5,-8" fill="white"/>
+    <!-- Vertical arrow down -->
+    <polygon points="0,24 -5,8 0,12 5,8" fill="white"/>
+    <!-- Horizontal arrow left -->
+    <polygon points="-24,0 -8,5 -12,0 -8,-5" fill="white"/>
+    <!-- Horizontal arrow right -->
+    <polygon points="24,0 8,-5 12,0 8,5" fill="white"/>
+    <!-- Center dot -->
+    <circle cx="0" cy="0" r="3" fill="white"/>
+  </g>
+
+  <!-- EKO letterforms -->
+  <g fill="#222222">
+    <!-- Є (E with bars) -->
+    <path d="M84,10 L84,62 L88,62 L88,39 L112,39 L112,35 L88,35 L88,14 L112,14 L112,10 Z"/>
+    <line x1="88" y1="25" x2="108" y2="25" stroke="#222222" stroke-width="4"/>
+
+    <!-- К -->
+    <path d="M122,10 L126,10 L126,32 L148,10 L154,10 L134,33 L156,62 L150,62 L130,35 L126,39 L126,62 L122,62 Z"/>
+
+    <!-- О (angular) -->
+    <path d="M168,10 L204,10 L210,16 L210,56 L204,62 L168,62 L162,56 L162,16 Z M168,16 L168,56 L204,56 L204,16 Z"/>
+  </g>
+
+  <!-- ® -->
+  <circle cx="222" cy="16" r="8" stroke="#222" stroke-width="1.2" fill="none"/>
+  <text x="222" y="20" text-anchor="middle" font-size="11" font-weight="bold" font-family="Arial,sans-serif" fill="#222">R</text>
+</svg>
