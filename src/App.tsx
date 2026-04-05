@@ -4,6 +4,7 @@ import { KanbanBoard } from './components/Board/KanbanBoard'
 import { SettingsPage } from './components/Settings/SettingsPage'
 import { useTasks } from './hooks/useTasks'
 import { useDesigners } from './hooks/useDesigners'
+import { supabase } from './lib/supabase'
 import { Loader2 } from 'lucide-react'
 
 type Page = 'dashboard' | 'settings'
@@ -15,11 +16,16 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState<Page>('dashboard')
 
-  // Handle /settings path from OAuth callback redirect
+  // Handle /settings path + load last sync time from DB
   useEffect(() => {
     if (window.location.pathname === '/settings') {
       setPage('settings')
     }
+    // Load last sync timestamp
+    supabase.from('sync_metadata').select('last_synced_at').eq('id', 1).single()
+      .then(({ data }) => {
+        if (data?.last_synced_at) setLastSync(data.last_synced_at)
+      })
   }, [])
 
   const filteredTasks = useMemo(() => {
