@@ -55,6 +55,38 @@ export function SettingsPage({ onBack }: Props) {
     }
   }
 
+  const disconnectGmail = async () => {
+    setMessage(null)
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'disconnect_gmail' }),
+      })
+      if (!res.ok) throw new Error('Failed to disconnect')
+      setMessage({ type: 'success', text: 'Gmail відключено' })
+      await fetchSettings()
+    } catch (e) {
+      setMessage({ type: 'error', text: e instanceof Error ? e.message : 'Failed' })
+    }
+  }
+
+  const disconnectDesignerGmail = async (designerId: string) => {
+    setMessage(null)
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'disconnect_designer_gmail', designerId }),
+      })
+      if (!res.ok) throw new Error('Failed to disconnect')
+      setMessage({ type: 'success', text: 'Gmail дизайнера відключено' })
+      await fetchDesigners()
+    } catch (e) {
+      setMessage({ type: 'error', text: e instanceof Error ? e.message : 'Failed' })
+    }
+  }
+
   const connectDesignerGmail = async (designerId: string) => {
     setMessage(null)
     try {
@@ -187,11 +219,17 @@ export function SettingsPage({ onBack }: Props) {
             )}
           </div>
           {isGoogleConnected && googleEmail && (
-            <div className="rounded-lg bg-green-50 border border-green-100 px-4 py-2.5 text-sm text-gray-700">
-              <span className="font-medium">{googleEmail}</span>
-              {connectedAt && (
-                <span className="ml-2 text-xs text-gray-400">з {new Date(connectedAt).toLocaleDateString('uk-UA')}</span>
-              )}
+            <div className="flex items-center justify-between rounded-lg bg-green-50 border border-green-100 px-4 py-2.5">
+              <div className="text-sm text-gray-700">
+                <span className="font-medium">{googleEmail}</span>
+                {connectedAt && (
+                  <span className="ml-2 text-xs text-gray-400">з {new Date(connectedAt).toLocaleDateString('uk-UA')}</span>
+                )}
+              </div>
+              <button onClick={disconnectGmail}
+                className="rounded-lg border border-red-200 px-2.5 py-1 text-xs text-red-500 hover:bg-red-50 transition-colors">
+                Відключити
+              </button>
             </div>
           )}
           <button onClick={connectGmail} disabled={connecting}
@@ -257,11 +295,18 @@ export function SettingsPage({ onBack }: Props) {
                         <Mail size={11} /> Gmail
                       </button>
                     ) : (
-                      <button onClick={() => connectDesignerGmail(d.id)}
-                        className="rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-[11px] text-green-600 hover:bg-green-100 flex items-center gap-1"
-                        title="Перепідключити">
-                        <CheckCircle size={11} /> Gmail
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => connectDesignerGmail(d.id)}
+                          className="rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-[11px] text-green-600 hover:bg-green-100 flex items-center gap-1"
+                          title="Перепідключити">
+                          <CheckCircle size={11} /> Gmail
+                        </button>
+                        <button onClick={() => disconnectDesignerGmail(d.id)}
+                          className="rounded p-1 text-gray-300 hover:text-red-500 hover:bg-red-50"
+                          title="Відключити Gmail">
+                          <X size={12} />
+                        </button>
+                      </div>
                     )}
                     <button onClick={() => startEdit(d)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"><Pencil size={14} /></button>
                     <button onClick={() => removeDesigner(d.id)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500"><Trash2 size={14} /></button>

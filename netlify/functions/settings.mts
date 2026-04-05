@@ -25,6 +25,29 @@ export default async function handler(req: Request, _context: Context) {
     return json(settings)
   }
 
+  if (req.method === 'DELETE') {
+    const body = await req.json().catch(() => ({})) as { action?: string; designerId?: string }
+
+    if (body.action === 'disconnect_gmail') {
+      // Disconnect main Gmail account
+      await supabase.from('settings').delete().eq('key', 'google_refresh_token')
+      await supabase.from('settings').delete().eq('key', 'google_connected_at')
+      await supabase.from('settings').delete().eq('key', 'google_email')
+      return json({ ok: true, message: 'Gmail disconnected' })
+    }
+
+    if (body.action === 'disconnect_designer_gmail' && body.designerId) {
+      // Disconnect a designer's Gmail
+      await supabase.from('designers').update({
+        gmail_refresh_token: null,
+        gmail_connected_at: null,
+      }).eq('id', body.designerId)
+      return json({ ok: true, message: 'Designer Gmail disconnected' })
+    }
+
+    return error('Invalid delete action', 400)
+  }
+
   if (req.method === 'PUT') {
     const body = await req.json()
     const { key, value } = body as { key: string; value: string }
