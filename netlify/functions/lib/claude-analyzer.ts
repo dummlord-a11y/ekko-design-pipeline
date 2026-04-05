@@ -222,18 +222,19 @@ function isObviouslyNotDesign(subject: string, body: string, senderEmail: string
 }
 
 /**
- * Hard pre-filter + single Sonnet call for both relevance and analysis.
+ * Hard pre-filter + single Sonnet call for relevance + analysis.
  * Returns null if not a design request.
  */
 export async function checkRelevanceAndAnalyze(input: AnalysisInput): Promise<AnalysisResult | null> {
-  // Layer 1: Hard pre-filter — instant skip, no API cost
   const senderEmail = input.senderEmail || input.body.match(/From:.*?<(.+?)>/i)?.[1] || ''
+
+  // Layer 1: Hard pre-filter — instant skip for known spam
   if (isObviouslyNotDesign(input.subject, input.body, senderEmail)) {
     console.log(`[Pre-filter] Skipping: "${input.subject}"`)
     return null
   }
 
-  // Layer 2: Sonnet — single call does relevance + full analysis
+  // Layer 2: Sonnet — relevance + full analysis in one call
   try {
     const analysis = await analyzeEmail(input)
 
