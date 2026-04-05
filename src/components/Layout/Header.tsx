@@ -40,7 +40,7 @@ export function Header({ lastSync, onSyncComplete, searchQuery, onSearchChange, 
   return (
     <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3">
       <div className="flex items-center gap-3">
-        <img src="/ekko-logo.svg" alt="Ekko" className="h-8" />
+        <img src="/ekko-logo.png" alt="SP-EKKO" className="h-9" />
         <div>
           {lastSync && (
             <p className="text-[11px] text-gray-400">
