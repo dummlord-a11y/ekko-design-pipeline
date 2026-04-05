@@ -49,19 +49,54 @@ function canPreview(att: Attachment) {
   )
 }
 
-function DocxViewer({ base64 }: { base64: string }) {
+function DocxViewer({ base64, filename }: { base64: string; filename: string }) {
   const [html, setHtml] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
+  const isOldDoc = filename.toLowerCase().endsWith('.doc') && !filename.toLowerCase().endsWith('.docx')
 
   useEffect(() => {
+    if (isOldDoc) {
+      // .doc format not supported by mammoth — show download option
+      setError('old_doc')
+      return
+    }
     const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
     mammoth.convertToHtml({ arrayBuffer: bytes.buffer })
       .then(result => setHtml(result.value))
-      .catch(() => setError('Не вдалося відкрити документ'))
-  }, [base64])
+      .catch(() => setError('parse_failed'))
+  }, [base64, isOldDoc])
 
-  if (error) return <p className="text-sm text-red-500">{error}</p>
-  if (!html) return <p className="text-sm text-gray-400">Завантаження...</p>
+  const handleDownload = () => {
+    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
+    const blob = new Blob([bytes], { type: 'application/msword' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-8">
+        <FileText size={40} className="text-gray-300" />
+        <p className="text-sm text-gray-500">
+          {error === 'old_doc'
+            ? 'Формат .doc не підтримує попередній перегляд'
+            : 'Не вдалося відкрити документ'}
+        </p>
+        <button
+          onClick={handleDownload}
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+        >
+          Завантажити файл
+        </button>
+      </div>
+    )
+  }
+
+  if (!html) return <p className="text-sm text-gray-400 text-center py-8">Завантаження...</p>
 
   return (
     <div
@@ -160,7 +195,7 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate, onDelete }
             {isPdf && (
               <iframe src={dataUrl} className="w-full h-[75vh]" title={previewAtt.filename} />
             )}
-            {isDocx && <DocxViewer base64={b64} />}
+            {isDocx && <DocxViewer base64={b64} filename={previewAtt.filename} />}
             {isText && <TextViewer base64={b64} />}
           </div>
         </div>
