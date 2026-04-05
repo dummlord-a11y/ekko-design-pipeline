@@ -222,68 +222,30 @@ function isObviouslyNotDesign(subject: string, body: string, senderEmail: string
 }
 
 /**
- * Quick relevance check — determines if an email is actually a design request.
- * Returns null if irrelevant, or the full analysis if relevant.
+ * Hard pre-filter + single Sonnet call for both relevance and analysis.
+ * Returns null if not a design request.
  */
 export async function checkRelevanceAndAnalyze(input: AnalysisInput): Promise<AnalysisResult | null> {
-  // Step 1: Hard pre-filter — instant skip for obvious non-design emails
+  // Layer 1: Hard pre-filter — instant skip, no API cost
   const senderEmail = input.senderEmail || input.body.match(/From:.*?<(.+?)>/i)?.[1] || ''
   if (isObviouslyNotDesign(input.subject, input.body, senderEmail)) {
-    console.log(`[Pre-filter] Skipping obvious non-design: "${input.subject}"`)
+    console.log(`[Pre-filter] Skipping: "${input.subject}"`)
     return null
   }
 
+  // Layer 2: Sonnet — single call does relevance + full analysis
   try {
-    const client = await getAnthropicClient()
-
-    // Step 2: AI relevance check with stricter prompt
-    const relevancePrompt = `Ти фільтр для поліграфічної дизайн-студії. Визнач чи цей лист є ЗАПИТОМ НА РОБОТУ дизайнера (дизайн етикетки, упаковки, друк, верстка, макет).
-
-ТЕМА: ${input.subject}
-ЗМІСТ (початок): ${input.body.slice(0, 600)}
-
-ОБОВ'ЯЗКОВО SKIP (це НЕ запит на дизайн):
-- Будь-які автоматичні повідомлення від сервісів (GitHub, Supabase, Stripe, Google, Netlify, AWS, Heroku, DigitalOcean, Linear, Slack, Jira та ін.)
-- Рахунки, оплати, квитанції, інвойси
-- Верифікація, підтвердження, security alerts
-- Newsletters, розсилки, промо-листи
-- Внутрішня переписка без конкретного завдання на дизайн
-- Листи від ботів, noreply, notifications
-
-DESIGN тільки якщо лист ЯВНО містить:
-- Конкретне завдання на дизайн/макет/верстку/друк
-- Бриф, ТЗ, референси для поліграфії
-- Запит на зміни у існуючому макеті
-
-Якщо є БУДЬ-ЯКИЙ сумнів — відповідай SKIP.
-Відповідай ТІЛЬКИ: DESIGN або SKIP`
-
-    const response = await client.messages.create({
-      model: 'claude-haiku-3-5-20241022',
-      max_tokens: 10,
-      messages: [{ role: 'user', content: relevancePrompt }],
-    })
-
-    const verdict = response.content[0].type === 'text' ? response.content[0].text.trim().toUpperCase() : ''
-
-    if (verdict.includes('SKIP')) {
-      console.log(`[Relevance] Skipping non-design email: "${input.subject}"`)
-      return null
-    }
-
-    // It's relevant — proceed with full analysis
     const analysis = await analyzeEmail(input)
 
-    // Double-check: if Sonnet itself says it's not a design request, skip it
     if (analysis.is_design_request === false) {
-      console.log(`[Sonnet] Rejected non-design email: "${input.subject}"`)
+      console.log(`[Sonnet] Rejected: "${input.subject}"`)
       return null
     }
 
     return analysis
   } catch (error) {
-    console.error('Relevance check failed, proceeding with analysis:', error)
-    return analyzeEmail(input)
+    console.error('Analysis failed:', error)
+    return null
   }
 }
 
