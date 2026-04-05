@@ -183,37 +183,74 @@ function analyzeAttachmentNames(names: string[]): string {
   return hints.length > 0 ? '\nАНАЛІЗ ВКЛАДЕНЬ: ' + hints.join('. ') : ''
 }
 
+// Hard pre-filter: skip emails from known automated/system senders
+const SKIP_SENDERS = [
+  'noreply', 'no-reply', 'notifications', 'notification', 'mailer-daemon',
+  'postmaster', 'support@github', 'github.com', 'gitlab.com',
+  'billing@', 'invoice@', 'receipt@', 'payment@',
+  'newsletter', 'promo@', 'marketing@', 'info@stripe.com',
+  'supabase.io', 'supabase.com', 'netlify.com', 'vercel.com',
+  'google.com/accounts', 'accounts.google', 'security@',
+  'digitalocean.com', 'aws.amazon.com', 'heroku.com',
+]
+
+const SKIP_SUBJECTS = [
+  'verify your', 'confirm your', 'reset password', 'two-factor',
+  'payment received', 'invoice', 'receipt for', 'billing',
+  'subscription', 'unsubscribe', 'newsletter',
+  'security alert', 'sign-in', 'login attempt',
+  'welcome to', 'account created', 'verify email',
+]
+
+function isObviouslyNotDesign(subject: string, body: string, senderEmail: string): boolean {
+  const lowerSender = senderEmail.toLowerCase()
+  const lowerSubject = subject.toLowerCase()
+
+  if (SKIP_SENDERS.some(s => lowerSender.includes(s))) return true
+  if (SKIP_SUBJECTS.some(s => lowerSubject.includes(s))) return true
+
+  // Skip if body is too short and looks automated
+  if (body.length < 50 && !subject.toLowerCase().match(/дизайн|макет|етикет|друк|design|label|print/)) return true
+
+  return false
+}
+
 /**
  * Quick relevance check — determines if an email is actually a design request.
  * Returns null if irrelevant, or the full analysis if relevant.
  */
 export async function checkRelevanceAndAnalyze(input: AnalysisInput): Promise<AnalysisResult | null> {
+  // Step 1: Hard pre-filter — instant skip for obvious non-design emails
+  const senderEmail = input.body.match(/From:.*?<(.+?)>/i)?.[1] || ''
+  if (isObviouslyNotDesign(input.subject, input.body, senderEmail)) {
+    console.log(`[Pre-filter] Skipping obvious non-design: "${input.subject}"`)
+    return null
+  }
+
   try {
     const client = await getAnthropicClient()
 
-    const relevancePrompt = `Визнач чи цей лист є запитом на поліграфічний дизайн, друк етикеток, упаковку або суміжну роботу.
+    // Step 2: AI relevance check with stricter prompt
+    const relevancePrompt = `Ти фільтр для поліграфічної дизайн-студії. Визнач чи цей лист є ЗАПИТОМ НА РОБОТУ дизайнера (дизайн етикетки, упаковки, друк, верстка, макет).
 
 ТЕМА: ${input.subject}
-ЗМІСТ (перші 800 символів): ${input.body.slice(0, 800)}
-ВКЛАДЕННЯ: ${input.attachmentNames.join(', ') || 'Немає'}
+ЗМІСТ (початок): ${input.body.slice(0, 600)}
 
-НЕ є запитом на дизайн:
-- Рекламні розсилки, спам, newsletters
-- Рахунки, акти, бухгалтерія (якщо не стосуються замовлення дизайну)
-- Внутрішня переписка що не містить завдання
-- Автоматичні повідомлення (системні нотифікації, підтвердження реєстрації)
-- Листи з результатами вже виконаної роботи (без нового завдання)
-- Запити на ціну без конкретного завдання на дизайн
+ОБОВ'ЯЗКОВО SKIP (це НЕ запит на дизайн):
+- Будь-які автоматичні повідомлення (GitHub, Supabase, Stripe, Google, сервіси)
+- Рахунки, оплати, квитанції, інвойси
+- Верифікація, підтвердження, security alerts
+- Newsletters, розсилки, промо-листи
+- Внутрішня переписка без конкретного завдання на дизайн
+- Листи від ботів, noreply, notifications
 
-Є запитом на дизайн:
-- Запит на розробку нового макету/етикетки/упаковки
-- Запит на внесення змін до існуючого макету
-- Запит на перевидрук з правками
-- Лист з референсами, ТЗ, брифом на дизайн
-- Запит на адаптацію дизайну під нові SKU
-- Запит на допечатну підготовку
+DESIGN тільки якщо лист ЯВНО містить:
+- Конкретне завдання на дизайн/макет/верстку/друк
+- Бриф, ТЗ, референси для поліграфії
+- Запит на зміни у існуючому макеті
 
-Відповідай ТІЛЬКИ одним словом: DESIGN або SKIP`
+Якщо є БУДЬ-ЯКИЙ сумнів — відповідай SKIP.
+Відповідай ТІЛЬКИ: DESIGN або SKIP`
 
     const response = await client.messages.create({
       model: 'claude-haiku-3-5-20241022',
