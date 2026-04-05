@@ -8,10 +8,10 @@
   external_node_modules = ["@anthropic-ai/sdk"]
 
 [functions."sync-gmail"]
-  timeout = 60
+  timeout = 120
 
 [functions."scheduled-sync"]
-  timeout = 60
+  timeout = 120
 
 [[redirects]]
   from = "/api/*"

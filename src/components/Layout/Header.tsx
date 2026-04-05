@@ -23,7 +23,14 @@ export function Header({ lastSync, onSyncComplete, searchQuery, onSearchChange, 
       console.log('Sync result:', result)
       onSyncComplete()
     } catch (e) {
-      setSyncError(e instanceof Error ? e.message : 'Sync failed')
+      const msg = e instanceof Error ? e.message : 'Sync failed'
+      if (msg.includes('Inactivity Timeout') || msg.includes('504')) {
+        setSyncError('Синхронізація працює у фоні. Оновіть сторінку через хвилину.')
+      } else {
+        setSyncError(msg)
+      }
+      // Auto-dismiss after 5s
+      setTimeout(() => setSyncError(null), 5000)
     } finally {
       setSyncing(false)
     }
