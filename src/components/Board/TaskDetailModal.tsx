@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   X, Paperclip, Brain, Clock, Tag, User, ChevronDown,
   AlertTriangle, Wrench, CheckSquare, Trash2, FileText, Image, Eye,
@@ -9,6 +9,7 @@ import { ComplexityBadge } from '../common/ComplexityBadge'
 import { Avatar } from '../common/Avatar'
 import { uk } from '../../lib/i18n'
 import { api } from '../../lib/api'
+import mammoth from 'mammoth'
 import type { Task, Designer, TaskStatus, Attachment } from '../../types'
 
 interface Props {
@@ -21,16 +22,69 @@ interface Props {
 
 const statusOptions: TaskStatus[] = ['backlog', 'assigned', 'in_progress', 'review', 'done']
 
-function getAttachmentIcon(mime: string) {
+const DOCX_TYPES = [
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+]
+const TEXT_TYPES = ['text/plain', 'text/csv', 'text/html', 'text/xml']
+
+function getAttachmentIcon(mime: string, filename: string) {
   if (mime.startsWith('image/')) return <Image size={12} className="text-blue-500" />
   if (mime === 'application/pdf') return <FileText size={12} className="text-red-500" />
+  if (DOCX_TYPES.includes(mime) || filename.match(/\.docx?$/i)) return <FileText size={12} className="text-blue-600" />
+  if (TEXT_TYPES.includes(mime) || filename.match(/\.(txt|csv)$/i)) return <FileText size={12} className="text-gray-500" />
   return <Paperclip size={12} className="text-gray-400" />
 }
 
 function canPreview(att: Attachment) {
+  const mime = att.mime_type
+  const name = att.filename.toLowerCase()
   return (
-    att.mime_type.startsWith('image/') ||
-    att.mime_type === 'application/pdf'
+    mime.startsWith('image/') ||
+    mime === 'application/pdf' ||
+    DOCX_TYPES.includes(mime) ||
+    TEXT_TYPES.includes(mime) ||
+    name.endsWith('.docx') || name.endsWith('.doc') ||
+    name.endsWith('.txt') || name.endsWith('.csv')
+  )
+}
+
+function DocxViewer({ base64 }: { base64: string }) {
+  const [html, setHtml] = useState<string>('')
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
+    mammoth.convertToHtml({ arrayBuffer: bytes.buffer })
+      .then(result => setHtml(result.value))
+      .catch(() => setError('Не вдалося відкрити документ'))
+  }, [base64])
+
+  if (error) return <p className="text-sm text-red-500">{error}</p>
+  if (!html) return <p className="text-sm text-gray-400">Завантаження...</p>
+
+  return (
+    <div
+      className="prose prose-sm max-w-none text-gray-700"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  )
+}
+
+function TextViewer({ base64 }: { base64: string }) {
+  let text: string
+  try {
+    text = atob(base64)
+    // Try decoding as UTF-8
+    text = new TextDecoder('utf-8').decode(Uint8Array.from(atob(base64), c => c.charCodeAt(0)))
+  } catch {
+    text = atob(base64)
+  }
+
+  return (
+    <pre className="whitespace-pre-wrap text-sm text-gray-700 font-mono leading-relaxed">
+      {text}
+    </pre>
   )
 }
 
@@ -73,7 +127,9 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate, onDelete }
   if (previewAtt) {
     const isImage = previewAtt.mime_type.startsWith('image/')
     const isPdf = previewAtt.mime_type === 'application/pdf'
-    // Convert URL-safe base64 to standard
+    const isDocx = DOCX_TYPES.includes(previewAtt.mime_type) || previewAtt.filename.match(/\.docx?$/i)
+    const isText = TEXT_TYPES.includes(previewAtt.mime_type) || previewAtt.filename.match(/\.(txt|csv)$/i)
+
     const b64 = previewAtt.data.replace(/-/g, '+').replace(/_/g, '/')
     const dataUrl = `data:${previewAtt.mime_type};base64,${b64}`
 
@@ -95,13 +151,17 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate, onDelete }
               <X size={18} />
             </button>
           </div>
-          <div className="overflow-auto max-h-[80vh] flex items-center justify-center bg-gray-50 p-4">
+          <div className="overflow-auto max-h-[80vh] bg-gray-50 p-4">
             {isImage && (
-              <img src={dataUrl} alt={previewAtt.filename} className="max-w-full max-h-[75vh] object-contain" />
+              <div className="flex items-center justify-center">
+                <img src={dataUrl} alt={previewAtt.filename} className="max-w-full max-h-[75vh] object-contain" />
+              </div>
             )}
             {isPdf && (
               <iframe src={dataUrl} className="w-full h-[75vh]" title={previewAtt.filename} />
             )}
+            {isDocx && <DocxViewer base64={b64} />}
+            {isText && <TextViewer base64={b64} />}
           </div>
         </div>
       </div>
@@ -174,7 +234,7 @@ export function TaskDetailModal({ task, designers, onClose, onUpdate, onDelete }
                       {loadingAtt === att.id ? (
                         <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
                       ) : (
-                        getAttachmentIcon(att.mime_type)
+                        getAttachmentIcon(att.mime_type, att.filename)
                       )}
                       <span className="max-w-[160px] truncate">{att.filename}</span>
                       {canPreview(att) && <Eye size={11} className="text-blue-400" />}
