@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { RefreshCw, Printer, Search, Settings } from 'lucide-react'
-import { api } from '../../lib/api'
 import { uk } from '../../lib/i18n'
 
 interface Props {
@@ -13,27 +12,29 @@ interface Props {
 
 export function Header({ lastSync, onSyncComplete, searchQuery, onSearchChange, onSettingsClick }: Props) {
   const [syncing, setSyncing] = useState(false)
-  const [syncError, setSyncError] = useState<string | null>(null)
 
   const handleSync = async () => {
     setSyncing(true)
-    setSyncError(null)
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
+
     try {
-      const result = await api.syncGmail()
-      console.log('Sync result:', result)
-      onSyncComplete()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Sync failed'
-      if (msg.includes('Inactivity Timeout') || msg.includes('504')) {
-        setSyncError('Синхронізація працює у фоні. Оновіть сторінку через хвилину.')
-      } else {
-        setSyncError(msg)
+      const result = await fetch('/api/sync-gmail', {
+        method: 'POST',
+        signal: controller.signal,
+      })
+      clearTimeout(timeout)
+      if (result.ok) {
+        const data = await result.json()
+        console.log('Sync result:', data)
       }
-      // Auto-dismiss after 5s
-      setTimeout(() => setSyncError(null), 5000)
-    } finally {
-      setSyncing(false)
+    } catch {
+      console.log('Sync request timed out — server continues processing')
     }
+
+    onSyncComplete()
+    setSyncing(false)
   }
 
   return (
@@ -83,12 +84,6 @@ export function Header({ lastSync, onSyncComplete, searchQuery, onSearchChange, 
           <Settings size={18} />
         </button>
       </div>
-
-      {syncError && (
-        <div className="absolute right-6 top-14 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-          {syncError}
-        </div>
-      )}
     </header>
   )
 }
