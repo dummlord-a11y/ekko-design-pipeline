@@ -25,6 +25,7 @@ export interface AnalysisInput {
 }
 
 export interface AnalysisResult {
+  is_design_request: boolean
   complexity: number
   priority: 'critical' | 'high' | 'medium' | 'low'
   category: string
@@ -146,10 +147,13 @@ ${input.body.slice(0, 5000)}
 ВКЛАДЕНІ ФАЙЛИ: ${input.attachmentNames.length > 0 ? input.attachmentNames.join(', ') : 'Немає'}
 ${analyzeAttachmentNames(input.attachmentNames)}
 
+ВАЖЛИВО: Якщо лист НЕ є запитом на дизайн/друк/поліграфію (наприклад, це автоматичне повідомлення від сервісу, рахунок, newsletter тощо) — встанови is_design_request: false.
+
 На основі всієї доступної інформації (текст, назви файлів${input.images && input.images.length > 0 ? ', додані зображення' : ''}) поверни JSON:
 
 {
-  "complexity": <число 1-5 за шкалою вище>,
+  "is_design_request": <true якщо це реальний запит на дизайн/друк, false якщо ні>,
+  "complexity": <число 1-5 за шкалою вище, 0 якщо is_design_request=false>,
   "priority": "<critical | high | medium | low>",
   "category": "<label_design | packaging | sticker | banner | brochure | other>",
   "summary_uk": "<стислий опис завдання українською, 2-3 речення, включаючи тип етикетки, орієнтовний розмір, кількість SKU>",
@@ -268,7 +272,15 @@ DESIGN тільки якщо лист ЯВНО містить:
     }
 
     // It's relevant — proceed with full analysis
-    return analyzeEmail(input)
+    const analysis = await analyzeEmail(input)
+
+    // Double-check: if Sonnet itself says it's not a design request, skip it
+    if (analysis.is_design_request === false) {
+      console.log(`[Sonnet] Rejected non-design email: "${input.subject}"`)
+      return null
+    }
+
+    return analysis
   } catch (error) {
     console.error('Relevance check failed, proceeding with analysis:', error)
     return analyzeEmail(input)
